@@ -1,0 +1,35 @@
+modules = ["nodejs-24", "python-base-3.13", "postgresql-16"]
+
+[deployment]
+router = "application"
+deploymentTarget = "autoscale"
+
+[deployment.postBuild]
+args = ["pnpm", "store", "prune"]
+env = { "CI" = "true" }
+
+[workflows]
+runButton = "Project"
+
+[agent]
+stack = "PNPM_WORKSPACE"
+expertMode = true
+
+[postMerge]
+path = "scripts/post-merge.sh"
+timeoutMs = 20000
+
+[nix]
+channel = "stable-25_05"
+
+[userenv]
+
+[userenv.development]
+ADMIN_CONSOLE_APP_NAME = "Production Priority Board"
+APP_ORIGIN = "https://ee04a9af-f4f9-4fc2-b3cb-91bee27c5842-00-xd9aw9d7gxy5.kirk.replit.dev"
+AUTH_REDIRECT_URI = "https://ee04a9af-f4f9-4fc2-b3cb-91bee27c5842-00-xd9aw9d7gxy5.kirk.replit.dev/api/auth/callback"
+
+[userenv.production]
+ADMIN_CONSOLE_APP_NAME = "Production Priority Board"
+APP_ORIGIN = "https://production-priority-board.replit.app"
+AUTH_REDIRECT_URI = "https://production-priority-board.replit.app/api/auth/callback"

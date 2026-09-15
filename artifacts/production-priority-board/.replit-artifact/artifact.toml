@@ -1,0 +1,28 @@
+kind = "web"
+previewPath = "/"
+title = "Production Priority Board"
+description = "An internal production operations board that turns machine work orders and related sales demand into a clear, traceable build priority by machine team."
+version = "1.0.0"
+id = "artifacts/production-priority-board"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 22476
+
+[services.development]
+run = "pnpm --filter @workspace/production-priority-board run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/production-priority-board", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/production-priority-board/dist/public"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "22476"
+BASE_PATH = "/"

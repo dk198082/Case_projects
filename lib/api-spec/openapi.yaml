@@ -1,0 +1,342 @@
+openapi: 3.1.0
+info:
+  # Do not change the title, if the title changes, the import paths will be broken
+  title: Api
+  version: 0.1.0
+  description: API specification
+servers:
+  - url: /api
+    description: Base API path
+tags:
+  - name: health
+    description: Health operations
+  - name: production-priority
+    description: Production Priority Board operations
+  - name: auth
+    description: Microsoft Entra authentication and application authorization
+paths:
+  /healthz:
+    get:
+      operationId: healthCheck
+      tags: [health]
+      summary: Health check
+      description: Returns server health status
+      responses:
+        "200":
+          description: Healthy
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/HealthStatus"
+  /login:
+    get:
+      operationId: beginMicrosoftLogin
+      tags: [auth]
+      summary: Begin Microsoft Entra sign-in
+      parameters:
+        - name: returnTo
+          in: query
+          required: false
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Redirect to Microsoft Entra
+  /auth/callback:
+    get:
+      operationId: completeMicrosoftLogin
+      tags: [auth]
+      summary: Complete Microsoft Entra sign-in and Admin Console access check
+      parameters:
+        - name: code
+          in: query
+          required: true
+          schema:
+            type: string
+        - name: state
+          in: query
+          required: true
+          schema:
+            type: string
+      responses:
+        "302":
+          description: Authentication succeeded and the browser is redirected to the app
+        "400":
+          description: Invalid or expired sign-in state
+        "403":
+          description: Admin Console denied application access
+        "503":
+          description: Authentication or authorization service unavailable
+  /me:
+    get:
+      operationId: getCurrentUser
+      tags: [auth]
+      summary: Get the authenticated session user
+      responses:
+        "200":
+          description: Authenticated user
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CurrentUser"
+        "401":
+          description: Login required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+  /logout:
+    post:
+      operationId: logout
+      tags: [auth]
+      summary: Destroy the local session and sign out through Microsoft
+      responses:
+        "302":
+          description: Redirect to Microsoft logout
+  /production-priority:
+    get:
+      operationId: getProductionPriority
+      tags: [production-priority]
+      summary: Get the live production priority snapshot
+      description: Returns normalized work orders and future demand from the Azure PostgreSQL production views.
+      parameters:
+        - name: refresh
+          in: query
+          required: false
+          schema:
+            type: boolean
+          description: Bypass the short server-side read cache.
+      responses:
+        "200":
+          description: Live production priority snapshot
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ProductionPriorityResponse"
+        "401":
+          description: Login required
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+components:
+  schemas:
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+      required:
+        - status
+    CurrentUser:
+      type: object
+      required:
+        - entraOid
+        - email
+        - displayName
+        - role
+      properties:
+        entraOid: { type: string }
+        email: { type: string }
+        displayName: { type: string }
+        role:
+          type: string
+          enum: [viewer, editor]
+    ErrorResponse:
+      type: object
+      required:
+        - message
+      properties:
+        message: { type: string }
+    ProductionOrder:
+      type: object
+      required:
+        - id
+        - workOrder
+        - salesOrder
+        - customer
+        - customerPO
+        - itemNumber
+        - description
+        - SC1
+        - SC2
+        - SC3
+        - buildStartDate
+        - buildEndDate
+        - salesShipDate
+        - createdDate
+        - requestedDate
+        - status
+        - currentStage
+        - resource
+        - rawResource
+        - productionGroup
+        - productionGroupName
+        - destination
+        - country
+        - salesperson
+        - customerReference
+        - exceptionFlags
+        - linkageStatus
+        - linkageAudit
+        - salesOrderLines
+      properties:
+        id: { type: string }
+        workOrder: { type: string }
+        salesOrder: { type: string }
+        customer: { type: string }
+        customerPO: { type: string }
+        itemNumber: { type: string }
+        description: { type: string }
+        SC1: { type: string }
+        SC2: { type: string }
+        SC3: { type: string }
+        buildStartDate: { type: string }
+        buildEndDate: { type: string }
+        salesShipDate: { type: string }
+        createdDate: { type: string }
+        requestedDate: { type: string }
+        status:
+          type: string
+          enum: [STARTED, RELEASED]
+        currentStage: { type: string }
+        resource: { type: string }
+        rawResource: { type: string }
+        productionGroup: { type: string }
+        productionGroupName:
+          type: string
+          description: Full D365FO production-group name from the cost production group staging lookup.
+        destination: { type: string }
+        country: { type: string }
+        salesperson: { type: string }
+        customerReference: { type: string }
+        exceptionFlags:
+          type: array
+          items: { type: string }
+        linkageStatus:
+          type: string
+          enum: [Linked, Unlinked, Partial]
+        linkageAudit:
+          $ref: "#/components/schemas/SalesOrderLinkageAudit"
+        salesOrderLines:
+          type: array
+          description: All sales order lines on the order's sales order, sourced from the D365FO sales line staging table.
+          items:
+            $ref: "#/components/schemas/SalesOrderLine"
+    SalesOrderLine:
+      type: object
+      required:
+        - line
+        - item
+        - description
+        - configuration
+        - configName
+        - qty
+        - unit
+        - reference
+        - status
+      properties:
+        line: { type: string }
+        item: { type: string }
+        description: { type: string }
+        configuration: { type: string }
+        configName: { type: string }
+        qty:
+          type: [number, "null"]
+        unit: { type: string }
+        reference: { type: string }
+        status: { type: string }
+    SalesOrderLinkageAudit:
+      type: object
+      description: Deterministic reconciliation of the sales header, item line, and production demand lot.
+      required:
+        - salesOrder
+        - company
+        - itemNumber
+        - inventoryLotDemandId
+        - salesHeaderMatched
+        - salesLineMatched
+        - productionDemandMatched
+      properties:
+        salesOrder: { type: string }
+        company: { type: string, description: Source data-area/company identifier. }
+        itemNumber: { type: string }
+        inventoryLotDemandId: { type: string }
+        salesHeaderMatched: { type: boolean }
+        salesLineMatched: { type: boolean }
+        productionDemandMatched: { type: boolean }
+    FutureDemand:
+      type: object
+      required:
+        - id
+        - salesOrder
+        - customer
+        - customerPO
+        - itemNumber
+        - description
+        - SC1
+        - SC3
+        - requestedDate
+        - salesShipDate
+        - status
+      properties:
+        id: { type: string }
+        salesOrder: { type: string }
+        customer: { type: string }
+        customerPO: { type: string }
+        itemNumber: { type: string }
+        description: { type: string }
+        SC1: { type: string }
+        SC3: { type: string }
+        requestedDate: { type: string }
+        salesShipDate: { type: string }
+        qty:
+          type: [number, "null"]
+        status:
+          type: string
+          enum: [NO WORK ORDER]
+    DataQuality:
+      type: object
+      required:
+        - machineRows
+        - validWorkOrders
+        - duplicateWorkOrders
+        - linkedOrders
+        - populatedSalesOrders
+        - validatedSalesOrderLinks
+        - partialLinkages
+        - unlinkedOrders
+        - futureDemand
+        - futureDemandAlreadyLinked
+        - invalidSC3
+        - invalidDates
+      properties:
+        machineRows: { type: number }
+        validWorkOrders: { type: number }
+        duplicateWorkOrders: { type: number }
+        linkedOrders: { type: number, description: Compatibility count of orders with a populated sales-order number. }
+        populatedSalesOrders: { type: number, description: Orders with a non-empty sales-order number. }
+        validatedSalesOrderLinks: { type: number, description: Orders with all required sales header item-line company and inventory-lot demand identifiers matched. }
+        partialLinkages: { type: number, description: Orders with a sales-order number that fail one or more linkage checks. }
+        unlinkedOrders: { type: number }
+        futureDemand: { type: number }
+        futureDemandAlreadyLinked: { type: number }
+        invalidSC3: { type: number }
+        invalidDates: { type: number }
+    ProductionPriorityResponse:
+      type: object
+      required: [orders, demand, dataQuality, dataAsOf]
+      properties:
+        orders:
+          type: array
+          items:
+            $ref: "#/components/schemas/ProductionOrder"
+        demand:
+          type: array
+          items:
+            $ref: "#/components/schemas/FutureDemand"
+        dataQuality:
+          $ref: "#/components/schemas/DataQuality"
+        dataAsOf:
+          type: string
+

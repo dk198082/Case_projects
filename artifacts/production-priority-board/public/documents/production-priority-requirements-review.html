@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <title>Production Priority Board requirements review</title>
+    <style>
+  :root {
+    color-scheme: dark;
+    font-family: Aptos, "Segoe UI", Arial, sans-serif;
+    background: #00281d;
+    color: #f5faf3;
+    line-height: 1.55;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #00281d; }
+  main { width: min(1100px, calc(100% - 40px)); margin: 0 auto; padding: 48px 0 72px; }
+  header { border-bottom: 1px solid rgba(194, 210, 190, .25); padding-bottom: 28px; }
+  .eyebrow { color: #b7ff00; font: 700 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .15em; text-transform: uppercase; }
+  h1 { margin: 10px 0 0; font-size: clamp(28px, 5vw, 46px); line-height: 1.05; letter-spacing: -.03em; }
+  h2 { margin: 0; font-size: 21px; line-height: 1.2; }
+  h3 { margin: 0; font-size: 16px; line-height: 1.3; }
+  p { margin: 0; }
+  .subtitle { max-width: 780px; margin-top: 14px; color: #c2d2be; font-size: 15px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 22px; color: #c2d2be; font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .meta strong { color: #f5faf3; }
+  .notice { margin-top: 28px; border: 1px solid rgba(183, 255, 0, .3); background: rgba(183, 255, 0, .06); padding: 14px 16px; color: #dcebd7; font-size: 13px; }
+  section { margin-top: 34px; }
+  .section-heading { display: flex; gap: 14px; align-items: flex-start; border-bottom: 1px solid rgba(194, 210, 190, .22); padding-bottom: 12px; }
+  .section-number { color: #b7ff00; font: 700 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .section-summary { margin-top: 6px; color: #c2d2be; font-size: 13px; }
+  .grid { display: grid; gap: 12px; margin-top: 14px; }
+  .card { border: 1px solid rgba(194, 210, 190, .22); background: rgba(8, 58, 43, .52); padding: 16px; break-inside: avoid; }
+  .card-header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: flex-start; }
+  .card-header p, .source { margin-top: 5px; color: #9db39b; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+  .label { margin-bottom: 6px; color: #b7ff00; font: 700 10px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; text-transform: uppercase; }
+  .copy { color: #e6f0e3; font-size: 13px; }
+  .two-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+  .inset { border: 1px solid rgba(194, 210, 190, .16); background: rgba(0, 40, 29, .34); padding: 12px; }
+  .pill { display: inline-block; border: 1px solid rgba(194, 210, 190, .25); padding: 4px 7px; color: #c2d2be; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+  .pill-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .status { border-radius: 2px; padding: 5px 8px; font: 700 10px ui-monospace, SFMono-Regular, Menlo, monospace; text-transform: uppercase; }
+  .fulfilled { border: 1px solid rgba(183, 255, 0, .35); background: rgba(183, 255, 0, .1); color: #b7ff00; }
+  .partial { border: 1px solid rgba(251, 191, 36, .35); background: rgba(251, 191, 36, .1); color: #fde68a; }
+  .out-of-scope { border: 1px solid rgba(125, 211, 252, .3); background: rgba(125, 211, 252, .08); color: #bae6fd; }
+  ol.path { display: flex; flex-wrap: wrap; gap: 9px 24px; padding: 0; margin: 14px 0 0; list-style: none; counter-reset: path; }
+  ol.path li { position: relative; border: 1px solid rgba(194, 210, 190, .22); background: rgba(8, 58, 43, .52); padding: 8px 11px; color: #f5faf3; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  ol.path li:not(:last-child)::after { content: "→"; position: absolute; right: -19px; color: #b7ff00; }
+  footer { margin-top: 42px; border-top: 1px solid rgba(194, 210, 190, .22); padding-top: 16px; color: #9db39b; font-size: 12px; }
+  @media (max-width: 680px) {
+    main { width: min(100% - 28px, 1100px); padding-top: 28px; }
+    .two-col { grid-template-columns: 1fr; }
+    ol.path { display: grid; }
+    ol.path li:not(:last-child)::after { content: "↓"; right: auto; left: 12px; bottom: -18px; }
+  }
+  @media print {
+    :root { color-scheme: light; background: white; color: #10251b; }
+    body { background: white; }
+    main { width: 100%; padding: 0; }
+    .card, .inset, ol.path li { background: #f5faf3; border-color: #b8c6b4; }
+    .subtitle, .section-summary, .copy, footer, .card-header p, .source { color: #38523d; }
+    .eyebrow, .section-number, .label { color: #176b37; }
+    .notice { background: #f0f8e7; border-color: #9abf68; color: #254a2b; }
+  }
+</style>
+  </head>
+  <body><main><header>
+    <div class="eyebrow">Production Priority Board · Requirements Review</div>
+    <h1>Production Priority Board requirements review</h1>
+    <p class="subtitle">A standalone record of how the current implementation maps to the production board requirements. Partial and data-dependent areas are called out instead of being treated as verified passes.</p>
+    <div class="meta">
+      <span>Version <strong>2026.08.26</strong></span>
+      <span>Reviewed <strong>26 August 2026</strong></span>
+      <span>Source <strong>PRODUCTION_PRIORITY_BOARD_replit_app_develop_1787559712168.docx</strong></span>
+    </div>
+  </header>
+  <div class="notice">This is a static downloadable document generated from the application-owned requirements manifest. Current live evidence remains available through the read-only production snapshot API, not in this file.</div>
+  
+    <section>
+      <div class="section-heading">
+        <span class="section-number">01</span>
+        <div><h2>Source, scope &amp; architecture</h2><p class="section-summary">The board is an operational priority and visibility tool, not a scheduling or capacity-planning engine.</p></div>
+      </div>
+      <div class="grid">
+  <article class="card">
+    <div class="card-header">
+      <div>
+        <h3>Live source and runtime boundary</h3>
+        <p>Use the supplied production data while keeping the UI independent from the raw source format.</p>
+      </div>
+      <span class="status fulfilled">Fulfilled</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Functional behavior</div><p class="copy">The board loads the current production snapshot and keeps the original workbook only as an audit/reference artifact.</p></div>
+      <div class="inset"><div class="label">Technical evidence</div><p class="copy">The browser reads the read-only production-priority API. The API adapter reads Azure PostgreSQL through d365fo.vw_salesprodmachines365 and normalizes the response.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div>
+        <h3>Layered data architecture</h3>
+        <p>Separate source data, linking/normalization, business rules, SC3 view, and presentation.</p>
+      </div>
+      <span class="status fulfilled">Fulfilled</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Functional behavior</div><p class="copy">Operators see a concise queue without raw workbook parsing details.</p></div>
+      <div class="inset"><div class="label">Technical evidence</div><p class="copy">Azure normalization and stop/filter rules live in the API; SC3 filtering, sorting, KPIs, and display behavior live in reusable hooks and page components.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div>
+        <h3>Capacity-planning boundary</h3>
+        <p>Do not show resource loading, utilization, labor capacity, finite scheduling, available hours, or bottleneck calculations.</p>
+      </div>
+      <span class="status out-of-scope">Intentionally out of scope</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Functional behavior</div><p class="copy">The board answers what to work on next and what is late or blocked without pretending to optimize capacity.</p></div>
+      <div class="inset"><div class="label">Technical evidence</div><p class="copy">No capacity, labor, utilization, bottleneck, or resource-loading calculations are present in the live contract or UI.</p></div>
+    </div>
+  </article></div>
+    </section>
+    <section>
+      <div class="section-heading">
+        <span class="section-number">02</span>
+        <div><h2>Linkage, source fidelity &amp; validation</h2><p class="section-summary">Production and commercial context is carried from the source view, with visible data-quality indicators.</p></div>
+      </div>
+      <div class="grid">
+  <article class="card">
+    <div class="card-header">
+      <div>
+        <h3>Production/order relationship visibility</h3>
+        <p>Connect work orders to sales orders and retain the production, customer, and SC3 relationship.</p>
+      </div>
+      <span class="status partial">Partial / data-dependent</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Functional behavior</div><p class="copy">A work-order row shows production and commercial context from the live source and makes partial or unlinked exceptions explicit.</p></div>
+      <div class="inset"><div class="label">Technical evidence</div><p class="copy">The API reconciles source sales headers and item lines to production-order demand using sales order, company, item, and inventory-lot demand identifiers. This requirement becomes fulfilled only while that audit is live.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div>
+        <h3>No invented source values</h3>
+        <p>Blank source fields remain blank or display an em dash; customer information must come from linked source data.</p>
+      </div>
+      <span class="status fulfilled">Fulfilled</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Functional behavior</div><p class="copy">Unavailable customer, date, destination, or reference details show as — instead of fabricated values.</p></div>
+      <div class="inset"><div class="label">Technical evidence</div><p class="copy">The adapter trims source text, treats invalid/placeholder dates as empty, and maps absent fields to empty strings that the UI renders safely.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div>
+        <h3>Pre-render data-quality checks</h3>
+        <p>Validate work-order shape, linkage, SC3 values, dates, duplicates, future demand, and stop detection before rendering.</p>
+      </div>
+      <span class="status partial">Partial / data-dependent</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Functional behavior</div><p class="copy">The expandable Data quality panel exposes the current validation counts without distracting production users.</p></div>
+      <div class="inset"><div class="label">Technical evidence</div><p class="copy">The API reports valid six-digit work orders, duplicate orders, populated sales-order numbers, fully validated links, partial/unlinked links, invalid SC3 values, invalid dates, and future demand.</p></div>
+    </div>
+  </article></div>
+    </section>
+    <section>
+      <div class="section-heading">
+        <span class="section-number">03</span>
+        <div><h2>SC3 team structure &amp; navigation</h2><p class="section-summary">SC3 is the primary operating context and controls the queue, KPIs, exceptions, and demand view.</p></div>
+      </div>
+      <div class="grid">
+  <article class="card">
+    <div class="card-header">
+      <div>
+        <h3>Dynamic active-team selector</h3>
+        <p>Organize the board around SC3 and show active-order counts for available teams.</p>
+      </div>
+      <span class="status fulfilled">Fulfilled</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Functional behavior</div><p class="copy">Production users can select an SC3 team and immediately see its active-order count and queue.</p></div>
+      <div class="inset"><div class="label">Technical evidence</div><p class="copy">The client derives the selector and counts from the API’s current non-complete orders. The server applies the approved SC3 allow-list before returning data.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div>
+        <h3>Default team and session memory</h3>
+        <p>Open on the team with the largest active workload and remember the user’s selection during the browser session.</p>
+      </div>
+      <span class="status fulfilled">Fulfilled</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Functional behavior</div><p class="copy">The busiest available SC3 is selected initially; returning users keep their team while the session remains active.</p></div>
+      <div class="inset"><div class="label">Technical evidence</div><p class="copy">useSessionSC3 ranks active team counts and stores the selected value in sessionStorage.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div>
+        <h3>Required source filters</h3>
+        <p>Exclude the configured item, disallowed SC1/SC2/SC3 values, completed statuses, and consignment pools.</p>
+      </div>
+      <span class="status fulfilled">Fulfilled</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Functional behavior</div><p class="copy">Operators only see the approved production scope; these rules cannot be disabled from the UI.</p></div>
+      <div class="inset"><div class="label">Technical evidence</div><p class="copy">The same predicate is applied in the Azure SQL WHERE clause and again server-side before orders, demand, KPIs, and teams are produced.</p></div>
+    </div>
+  </article></div>
+    </section>
+    <section>
+      <div class="section-heading">
+        <span class="section-number">04</span>
+        <div><h2>Priority queue &amp; dates</h2><p class="section-summary">The primary view is a dense, traceable list driven by route-derived build need first.</p></div>
+      </div>
+      <div class="grid">
+  <article class="card">
+    <div class="card-header">
+      <div>
+        <h3>Single priority list</h3>
+        <p>Present one vertically ordered list, with the first executable item as the next production priority.</p>
+      </div>
+      <span class="status fulfilled">Fulfilled</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Functional behavior</div><p class="copy">The selected team’s queue is shown as a table so several orders can be compared at once.</p></div>
+      <div class="inset"><div class="label">Technical evidence</div><p class="copy">The client calculates executable priority after SC3, search, status, past-due, and sort filters are applied.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div>
+        <h3>Internal build date leads</h3>
+        <p>Prioritize internal build need, then sales ship date, then work order.</p>
+      </div>
+      <span class="status fulfilled">Fulfilled</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Functional behavior</div><p class="copy">Build start, build end, and ship dates are all visible; the build end date drives the default order.</p></div>
+      <div class="inset"><div class="label">Technical evidence</div><p class="copy">Build start/end dates are derived per work order from the production route (first non-warehouse-pick operation start, last non-warehouse-receive operation end). Default sorting uses build end date, sales ship date, and work-order tie-breakers.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div>
+        <h3>Stopped-order status override removed</h3>
+        <p>By product decision, a stop condition no longer changes an order&#039;s displayed status or removes it from executable priority.</p>
+      </div>
+      <span class="status out-of-scope">Intentionally out of scope</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Functional behavior</div><p class="copy">A Started or Released order that also carries a stop condition (sales processing stop, sales-order stop flag, or Hold instruction) now displays and sorts exactly like any other Started or Released order.</p></div>
+      <div class="inset"><div class="label">Technical evidence</div><p class="copy">The server no longer computes a stopped flag, stop reasons, or a STOPPED status overlay; the sales-processing-stop audit join was removed from the query, and the client no longer excludes any order from the executable priority sequence or shows an Order stopped KPI.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div>
+        <h3>Date exceptions</h3>
+        <p>Highlight build past due, ship past due, both past due, and missing build dates.</p>
+      </div>
+      <span class="status fulfilled">Fulfilled</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Functional behavior</div><p class="copy">Red dates and exception badges make late work visible without filling the entire row red.</p></div>
+      <div class="inset"><div class="label">Technical evidence</div><p class="copy">Exception flags are derived from normalized source dates; year-1900 placeholders are treated as missing.</p></div>
+    </div>
+  </article></div>
+    </section>
+    <section>
+      <div class="section-heading">
+        <span class="section-number">05</span>
+        <div><h2>Status, stage &amp; exceptions</h2><p class="section-summary">ERP status and resource context are translated into operator-friendly labels without inventing new states.</p></div>
+      </div>
+      <div class="grid">
+  <article class="card">
+    <div class="card-header">
+      <div>
+        <h3>Operator status normalization</h3>
+        <p>By product decision, show only two operator statuses: STARTED and RELEASED.</p>
+      </div>
+      <span class="status fulfilled">Fulfilled</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Functional behavior</div><p class="copy">Rows show only Started or Released; orders that are Scheduled, Complete, blank, or any other source status are excluded from the board entirely, the same way completed orders always were.</p></div>
+      <div class="inset"><div class="label">Technical evidence</div><p class="copy">The API keeps a row only when its normalized status is STARTED or RELEASED; every other source status value is filtered out of orders[] before the response is built.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div>
+        <h3>Stage/resource presentation</h3>
+        <p>Retain current stage/resource context for order details while keeping the main queue concise.</p>
+      </div>
+      <span class="status fulfilled">Fulfilled</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Functional behavior</div><p class="copy">The main table stays readable while the order detail view retains current stage and the full Resource value.</p></div>
+      <div class="inset"><div class="label">Technical evidence</div><p class="copy">The adapter aliases mixed-case resource fields into stable API fields; OrderDetailsDialog exposes current stage and resource without adding them to the main table.</p></div>
+    </div>
+  </article></div>
+    </section>
+    <section>
+      <div class="section-heading">
+        <span class="section-number">06</span>
+        <div><h2>Demand, details, filters &amp; search</h2><p class="section-summary">Forward demand stays separate from actionable work, with concise rows and deeper detail on demand.</p></div>
+      </div>
+      <div class="grid">
+  <article class="card">
+    <div class="card-header">
+      <div>
+        <h3>Upcoming demand without a work order</h3>
+        <p>Show future machine demand separately and never assign it a production priority.</p>
+      </div>
+      <span class="status out-of-scope">Intentionally out of scope</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Functional behavior</div><p class="copy">By product decision, the Board no longer surfaces an Upcoming demand panel or a demand KPI; supervisors work the executable queue only.</p></div>
+      <div class="inset"><div class="label">Technical evidence</div><p class="copy">The API still derives demand from filtered rows with a sales order, future ship date, and no production order, but only to feed the futureDemand count in the data-quality panel — the client no longer renders or filters demand rows for display.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div>
+        <h3>Production detail view</h3>
+        <p>Open a right-side drawer with production/commercial details for a selected work order.</p>
+      </div>
+      <span class="status fulfilled">Fulfilled</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Functional behavior</div><p class="copy">Clicking a work order opens a right-side detail drawer that preserves the queue context.</p></div>
+      <div class="inset"><div class="label">Technical evidence</div><p class="copy">OrderDetailsDialog uses an accessible sheet panel to expose source fields, dates, raw resource, and linkage while retaining a full-width mobile presentation.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div>
+        <h3>Simple filters and search</h3>
+        <p>Support All Active, Started, Released, Past Due, and search within the selected team.</p>
+      </div>
+      <span class="status fulfilled">Fulfilled</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Functional behavior</div><p class="copy">Operators can change status/date views, sort the queue, search by WO/SO/customer/PO/item, or select All to view every SC3 team.</p></div>
+      <div class="inset"><div class="label">Technical evidence</div><p class="copy">useProductionData applies the team, status, date, and search filters before calculating priority; the UI exposes a small fixed filter set.</p></div>
+    </div>
+  </article></div>
+    </section>
+    <section>
+      <div class="section-heading">
+        <span class="section-number">07</span>
+        <div><h2>Presentation, responsiveness &amp; operator success</h2><p class="section-summary">The visual system emphasizes priority, dates, customer context, status, and exceptions on dark green surfaces.</p></div>
+      </div>
+      <div class="grid">
+  <article class="card">
+    <div class="card-header">
+      <div>
+        <h3>Visual hierarchy and palette</h3>
+        <p>Use the dark green/lime corporate palette with readable secondary text, amber warnings, and red serious exceptions.</p>
+      </div>
+      <span class="status fulfilled">Fulfilled</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Functional behavior</div><p class="copy">Priority, work order, build date, customer, sales order, ship date, and status are visible in the main row; stage and exception context remains available in order details.</p></div>
+      <div class="inset"><div class="label">Technical evidence</div><p class="copy">The theme tokens use #00281D, #B7FF00, #C2D2BE, white, amber, and red across board surfaces and state treatments.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div>
+        <h3>Desktop and mobile layout</h3>
+        <p>Optimize for a 1920×1080 production screen while remaining usable on laptops and mobile widths.</p>
+      </div>
+      <span class="status fulfilled">Fulfilled</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Functional behavior</div><p class="copy">The table is dense on desktop, scrolls horizontally when needed, and the team/KPI controls wrap for smaller screens.</p></div>
+      <div class="inset"><div class="label">Technical evidence</div><p class="copy">Responsive Tailwind layout, horizontal table overflow, compact row spacing, and mobile-safe stacking are implemented in Dashboard.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div>
+        <h3>Five-second operator questions</h3>
+        <p>A supervisor should quickly identify next work, late work, started/released work, customer, build date, ship date, and forward demand.</p>
+      </div>
+      <span class="status partial">Partial / data-dependent</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Functional behavior</div><p class="copy">The board covers these questions when the source has the relevant fields; the requirements document records data-dependent gaps rather than hiding them.</p></div>
+      <div class="inset"><div class="label">Technical evidence</div><p class="copy">Queue, KPIs, exceptions, details, and demand are present. Current live data can legitimately produce zero demand or omit teams whose only rows are complete.</p></div>
+    </div>
+  </article></div>
+    </section>
+  <footer>Maintenance: update <code>src/lib/review-content.ts</code> and regenerate this document whenever requirements, source rules, scope, or user-visible behavior changes.</footer></main></body>
+</html>

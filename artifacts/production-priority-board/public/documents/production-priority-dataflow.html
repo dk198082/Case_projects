@@ -1,0 +1,497 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+    <title>Production Priority Board dataflow</title>
+    <style>
+  :root {
+    color-scheme: dark;
+    font-family: Aptos, "Segoe UI", Arial, sans-serif;
+    background: #00281d;
+    color: #f5faf3;
+    line-height: 1.55;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: #00281d; }
+  main { width: min(1100px, calc(100% - 40px)); margin: 0 auto; padding: 48px 0 72px; }
+  header { border-bottom: 1px solid rgba(194, 210, 190, .25); padding-bottom: 28px; }
+  .eyebrow { color: #b7ff00; font: 700 11px/1.2 ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .15em; text-transform: uppercase; }
+  h1 { margin: 10px 0 0; font-size: clamp(28px, 5vw, 46px); line-height: 1.05; letter-spacing: -.03em; }
+  h2 { margin: 0; font-size: 21px; line-height: 1.2; }
+  h3 { margin: 0; font-size: 16px; line-height: 1.3; }
+  p { margin: 0; }
+  .subtitle { max-width: 780px; margin-top: 14px; color: #c2d2be; font-size: 15px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px 24px; margin-top: 22px; color: #c2d2be; font: 12px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .meta strong { color: #f5faf3; }
+  .notice { margin-top: 28px; border: 1px solid rgba(183, 255, 0, .3); background: rgba(183, 255, 0, .06); padding: 14px 16px; color: #dcebd7; font-size: 13px; }
+  section { margin-top: 34px; }
+  .section-heading { display: flex; gap: 14px; align-items: flex-start; border-bottom: 1px solid rgba(194, 210, 190, .22); padding-bottom: 12px; }
+  .section-number { color: #b7ff00; font: 700 13px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .section-summary { margin-top: 6px; color: #c2d2be; font-size: 13px; }
+  .grid { display: grid; gap: 12px; margin-top: 14px; }
+  .card { border: 1px solid rgba(194, 210, 190, .22); background: rgba(8, 58, 43, .52); padding: 16px; break-inside: avoid; }
+  .card-header { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px; align-items: flex-start; }
+  .card-header p, .source { margin-top: 5px; color: #9db39b; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+  .label { margin-bottom: 6px; color: #b7ff00; font: 700 10px ui-monospace, SFMono-Regular, Menlo, monospace; letter-spacing: .12em; text-transform: uppercase; }
+  .copy { color: #e6f0e3; font-size: 13px; }
+  .two-col { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 14px; }
+  .inset { border: 1px solid rgba(194, 210, 190, .16); background: rgba(0, 40, 29, .34); padding: 12px; }
+  .pill { display: inline-block; border: 1px solid rgba(194, 210, 190, .25); padding: 4px 7px; color: #c2d2be; font: 10px ui-monospace, SFMono-Regular, Menlo, monospace; overflow-wrap: anywhere; }
+  .pill-row { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+  .status { border-radius: 2px; padding: 5px 8px; font: 700 10px ui-monospace, SFMono-Regular, Menlo, monospace; text-transform: uppercase; }
+  .fulfilled { border: 1px solid rgba(183, 255, 0, .35); background: rgba(183, 255, 0, .1); color: #b7ff00; }
+  .partial { border: 1px solid rgba(251, 191, 36, .35); background: rgba(251, 191, 36, .1); color: #fde68a; }
+  .out-of-scope { border: 1px solid rgba(125, 211, 252, .3); background: rgba(125, 211, 252, .08); color: #bae6fd; }
+  ol.path { display: flex; flex-wrap: wrap; gap: 9px 24px; padding: 0; margin: 14px 0 0; list-style: none; counter-reset: path; }
+  ol.path li { position: relative; border: 1px solid rgba(194, 210, 190, .22); background: rgba(8, 58, 43, .52); padding: 8px 11px; color: #f5faf3; font: 11px ui-monospace, SFMono-Regular, Menlo, monospace; }
+  ol.path li:not(:last-child)::after { content: "→"; position: absolute; right: -19px; color: #b7ff00; }
+  footer { margin-top: 42px; border-top: 1px solid rgba(194, 210, 190, .22); padding-top: 16px; color: #9db39b; font-size: 12px; }
+  @media (max-width: 680px) {
+    main { width: min(100% - 28px, 1100px); padding-top: 28px; }
+    .two-col { grid-template-columns: 1fr; }
+    ol.path { display: grid; }
+    ol.path li:not(:last-child)::after { content: "↓"; right: auto; left: 12px; bottom: -18px; }
+  }
+  @media print {
+    :root { color-scheme: light; background: white; color: #10251b; }
+    body { background: white; }
+    main { width: 100%; padding: 0; }
+    .card, .inset, ol.path li { background: #f5faf3; border-color: #b8c6b4; }
+    .subtitle, .section-summary, .copy, footer, .card-header p, .source { color: #38523d; }
+    .eyebrow, .section-number, .label { color: #176b37; }
+    .notice { background: #f0f8e7; border-color: #9abf68; color: #254a2b; }
+  }
+</style>
+  </head>
+  <body><main><header>
+    <div class="eyebrow">Production Priority Board · Dataflow</div>
+    <h1>Production Priority Board dataflow</h1>
+    <p class="subtitle">Trace the read-only path from Azure PostgreSQL source objects to the production queue, future demand panel, KPIs, exceptions, and data-quality indicators.</p>
+    <div class="meta">
+      <span>Version <strong>2026.08.26</strong></span>
+      <span>Updated <strong>26 August 2026</strong></span>
+    </div>
+  </header>
+  <div class="notice">This is a static downloadable document generated from the application-owned dataflow manifest. It describes the live path and formulas; current production counts remain available through the read-only API.</div>
+  <section>
+    <div class="section-heading"><span class="section-number">01</span><div><h2>Runtime path</h2><p class="section-summary">The read-only route from source systems to the operator-facing board.</p></div></div>
+    <ol class="path"><li>Browser UI</li><li>GET /api/production-priority</li><li>Azure PostgreSQL connection pool</li><li>d365fo.vw_salesprodmachines365 + linkage audit objects</li><li>Server normalization and Zod contract</li><li>Client filters, sorting, priority, KPIs, and presentation</li></ol>
+  </section>
+  <section>
+    <div class="section-heading"><span class="section-number">02</span><div><h2>Database/source inventory</h2><p class="section-summary">Tables, views, configuration, and contracts used by the production-priority flow.</p></div></div>
+    <div class="grid">
+  <article class="card">
+    <div class="card-header">
+      <div><h3>AZURE_PG_* + AZURE_PG_SCHEMA</h3><p>configuration</p></div>
+    </div>
+    <p class="copy" style="margin-top:12px">Selects the runtime PostgreSQL server, database, credentials, SSL behavior, and schema identifier.</p>
+    <div class="two-col">
+      <div class="inset"><div class="label">Fields used</div><div class="pill-row"><span class="pill">AZURE_PG_HOST</span><span class="pill">AZURE_PG_PORT</span><span class="pill">AZURE_PG_DATABASE</span><span class="pill">AZURE_PG_USER/AZURE_PG_SP_USER</span><span class="pill">AZURE_PG_PASSWORD</span><span class="pill">AZURE_PG_SSLMODE</span><span class="pill">AZURE_PG_SCHEMA</span></div></div>
+      <div class="inset"><div class="label">Used for</div><p class="copy">Connection selection and safely quoted schema-qualified object names. Azure takes precedence over DATABASE_URL when the Azure connection is complete.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>d365fo.vw_salesprodmachines365</h3><p>view</p></div>
+    </div>
+    <p class="copy" style="margin-top:12px">Base machine/production rowset. One source row is retained with a generated audit_row_id for the downstream CTE audits.</p>
+    <div class="two-col">
+      <div class="inset"><div class="label">Fields used</div><div class="pill-row"><span class="pill">salesordernumber, dataareaid, salesorderpoolid</span><span class="pill">deliveryaddressname, confirmedshippingdate, requestedshippingdate</span><span class="pill">ordercreationdatetime, engineeringnotes</span><span class="pill">itemdesc, itemnumber, orderedsalesquantity</span><span class="pill">deliverydate, scheduledstartdate, productionorderstatus, starteddate, status</span><span class="pill">productionordername, productionordernumber, endeddate</span><span class="pill">sc1, sc2, sc3, name</span><span class="pill">Resource1, Resource, Task, Assy_Resource, MachineResource</span></div></div>
+      <div class="inset"><div class="label">Used for</div><p class="copy">Production order rows, customer and sales-order context, dates, SC hierarchy, source status, resource/stage text, quantities, and future-demand candidates.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>d365fo.salesorderheaderv3staging</h3><p>table</p></div>
+    </div>
+    <p class="copy" style="margin-top:12px">Sales-order header lookup used for header-level linkage.</p>
+    <div class="two-col">
+      <div class="inset"><div class="label">Fields used</div><div class="pill-row"><span class="pill">salesordernumber</span><span class="pill">dataareaid</span></div></div>
+      <div class="inset"><div class="label">Used for</div><p class="copy">The sales-header portion of deterministic linkage validation.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>d365fo.salesorderlinev2staging</h3><p>table</p></div>
+    </div>
+    <p class="copy" style="margin-top:12px">Sales-order line lookup used to validate the machine item and obtain the inventory-lot demand key.</p>
+    <div class="two-col">
+      <div class="inset"><div class="label">Fields used</div><div class="pill-row"><span class="pill">salesordernumber</span><span class="pill">dataareaid</span><span class="pill">itemnumber</span><span class="pill">inventorylotid</span><span class="pill">islinestopped</span></div></div>
+      <div class="inset"><div class="label">Used for</div><p class="copy">Sales-line matching and the inventory-lot identifier used to connect demand to the production order header. islinestopped is available in the source model but is not currently an active stop rule.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>d365fo.prodproductionorderheaderstaging</h3><p>table</p></div>
+    </div>
+    <p class="copy" style="margin-top:12px">Production-order demand lookup used to verify that the source work order is tied to the sales-line demand.</p>
+    <div class="two-col">
+      <div class="inset"><div class="label">Fields used</div><div class="pill-row"><span class="pill">demandsalesordernumber</span><span class="pill">demandsalesorderlineinventorylotid</span><span class="pill">dataareaid</span><span class="pill">itemnumber</span><span class="pill">productionordernumber</span></div></div>
+      <div class="inset"><div class="label">Used for</div><p class="copy">Production-demand matching in the linkage audit. The deployed query uses the actual source column demandsalesorderlineinventorylotid for the inventory-lot comparison.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>ProductionPriorityResponse</h3><p>contract</p></div>
+    </div>
+    <p class="copy" style="margin-top:12px">Validated read-only API response consumed by the Board and described by the downloadable technical documents.</p>
+    <div class="two-col">
+      <div class="inset"><div class="label">Fields used</div><div class="pill-row"><span class="pill">orders[]</span><span class="pill">demand[]</span><span class="pill">dataQuality</span><span class="pill">dataAsOf</span></div></div>
+      <div class="inset"><div class="label">Used for</div><p class="copy">Stable boundary between server data rules and browser presentation. The OpenAPI document is the contract source of truth; generated Zod and client types validate/consume it.</p></div>
+    </div>
+  </article></div>
+  </section>
+  
+    <section>
+      <div class="section-heading">
+        <span class="section-number">03</span>
+        <div><h2>1. Source rowset and mandatory scope filters</h2><p class="section-summary">The first CTE filters the machine view before any order, demand, team, KPI, or data-quality result is produced.</p></div>
+      </div>
+      <div class="grid">
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Required source predicate</h3><p class="source">production-priority-filters.ts → requiredProductionPriorityWhereSql() and isRequiredProductionPriorityRow()</p></div>
+      <span class="status fulfilled">Guardrail</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">Keep only itemnumber != &#039;02002107&#039; AND sc2 in [Electmech, Machine, Hydraulic] AND sc1 in the approved list AND sc3 in the approved list AND normalized status not in [COMPLETED, REPORTEDFINISHED] AND salesorderpoolid does not contain &#039;Consign&#039; (case-insensitive).</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">The filtered machine CTE is the only rowset passed into stop auditing, linkage auditing, order mapping, demand derivation, and quality counts.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Approved SC1 values</h3><p class="source">production-priority-filters.ts → ALLOWED_SC1</p></div>
+      <span class="status fulfilled">Guardrail</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">Automated, FoldingEnd, HDT, Met-Impact, MFI, Plas-Impac, Retrofit, SL-Series, Torsion, Horizontal.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">Rows outside the approved SC1 taxonomy never reach the browser.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Approved SC3 values</h3><p class="source">production-priority-filters.ts → ALLOWED_SC3; use-production-data.ts → useSC3Teams()</p></div>
+      <span class="status fulfilled">Guardrail</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">2000SL, SL-ST, Misc, IT406, HDVT3, 600SL, Torsion, 300SL, 1000SL, NO-CNSL, MP1500, MP1200MAN, MP1200MWLD, MP1200ETO, CNSL-HYD, IT542, 799, CNSL-NOHYD, HDVT6.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">The selector can only be populated by approved SC3 values that have active returned orders; an approved team with no active rows is not shown.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Audit row identity</h3><p class="source">production-priority.ts → machine AS MATERIALIZED</p></div>
+      <span class="status fulfilled">Transform</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">ROW_NUMBER() OVER () AS audit_row_id, machine.*</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">Each base row can be joined back to the stop and linkage audit CTEs without relying on a possibly duplicated production-order number.</p></div>
+    </div>
+  </article></div>
+    </section>
+    <section>
+      <div class="section-heading">
+        <span class="section-number">04</span>
+        <div><h2>2. Linkage audits</h2><p class="section-summary">The server performs the relational checks before it labels a work order linked, partial, or unlinked.</p></div>
+      </div>
+      <div class="grid">
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Sales header linkage</h3><p class="source">production-priority.ts → linkage_audit; salesorderheaderv3staging</p></div>
+      <span class="status fulfilled">Transform</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">Header matches when trimmed sales order, data-area/company, and non-empty machine item prerequisites are present; salesordernumber and dataareaid must match.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">salesHeaderMatched is a boolean input to linkageStatus and data-quality counts.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Sales line linkage</h3><p class="source">production-priority.ts → linkage_audit; salesorderlinev2staging</p></div>
+      <span class="status fulfilled">Transform</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">Line matches the header on sales order + data area and the machine on itemnumber.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">salesLineMatched verifies that the work-order item has a corresponding sales-order line.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Production demand linkage</h3><p class="source">production-priority.ts → linkage_audit; prodproductionorderheaderstaging</p></div>
+      <span class="status fulfilled">Transform</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">Production matches the line on inventory-lot demand id + sales order + data area + item number, and matches the machine production order number; inventorylotid must be non-empty.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">productionDemandMatched verifies that the source work order is tied to the same sales-line demand.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Deterministic linkage status</h3><p class="source">production-priority-filters.ts → isValidatedProductionPriorityLinkage(), getProductionPriorityLinkageStatus()</p></div>
+      <span class="status fulfilled">Transform</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">If sales order is blank → Unlinked. Otherwise Linked only when sales order, company, item, inventory-lot demand id, header match, line match, and production-demand match are all true; otherwise Partial.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">Each production order carries linkageStatus and linkageAudit booleans; Partial adds the LINKAGE NOT VALIDATED exception.</p></div>
+    </div>
+  </article></div>
+    </section>
+    <section>
+      <div class="section-heading">
+        <span class="section-number">05</span>
+        <div><h2>3. Server normalization and order derivation</h2><p class="section-summary">Raw PostgreSQL values are normalized into the typed ProductionOrder shape before the response is validated.</p></div>
+      </div>
+      <div class="grid">
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Text normalization</h3><p class="source">production-priority.ts → text(); production-priority-filters.ts → text()</p></div>
+      <span class="status fulfilled">Transform</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">null/undefined → &#039;&#039;; all source strings are String(value).trim().</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">Whitespace does not create false links, empty labels, or inconsistent filters.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Usable dates</h3><p class="source">production-priority.ts → usableDate(), iso()</p></div>
+      <span class="status fulfilled">Transform</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">A date is usable only when it exists and getUTCFullYear() &gt;= 2000; otherwise it becomes &#039;&#039;.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">ERP year-1900 placeholders and nulls do not appear as real due dates or create false date exceptions.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Status normalization</h3><p class="source">production-priority.ts → normalizeStatus()</p></div>
+      <span class="status fulfilled">Transform</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">Uppercase source status; contains START → STARTED; contains RELEASE → RELEASED; otherwise &#039;&#039;.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">By product decision, the API exposes exactly two operator statuses to the board.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Active production rows</h3><p class="source">production-priority.ts → activeRows</p></div>
+      <span class="status fulfilled">Guardrail</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">From required rows, keep rows with a non-empty productionordernumber and a normalized status of STARTED or RELEASED.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">orders[] excludes Scheduled, Complete, blank, and any other status text, the same way it always excluded completed/reported-finished rows, along with rows without a production work order.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Route-derived build start/end dates</h3><p class="source">production-priority.ts → route_ops, build_dates CTEs</p></div>
+      <span class="status fulfilled">Transform</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">From vw_productionroutedetailsd365 joined on productionordernumber + dataareaid: buildStartDate = scheduledfromdate of the first operation (by operationnumber ascending) whose operationname is not &#039;Warehouse Pick%&#039;; buildEndDate = scheduledenddate of the last operation (by operationnumber ascending) whose operationname is not &#039;Warehouse Receive%&#039;; buildEndDate falls back to deliverydate when the order has no route rows.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">Build Start Date and Build End Date reflect when in-house production work actually begins and finishes on the route, matching how the Shop Floor App treats warehouse pick/receive as staging steps rather than production work.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Build, ship, stage, and resource fields</h3><p class="source">production-priority.ts → activeRows.map()</p></div>
+      <span class="status fulfilled">Transform</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">salesShipDate = confirmedshippingdate || requestedshippingdate; currentStage = Task || Assy_Resource || Resource1; resource = MachineResource || Resource1 || Resource.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">The queue gets one sales ship date alongside the route-derived build dates; order details retain concise stage/resource labels while rawResource retains the original Resource text.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Exception flags</h3><p class="source">production-priority.ts → exceptionFlags</p></div>
+      <span class="status fulfilled">Transform</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">Add HOLD when stage/resource contains Hold; BUILD &amp; SHIP PAST DUE when both dates are past due; BUILD DATE PAST DUE or SHIP DATE PAST DUE for one; NO BUILD DATE when build date is blank; LINKAGE NOT VALIDATED or UNLINKED from linkage status.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">The status and detail panel can explain late, hold-instruction, missing-date, and linkage conditions without recalculating them independently. By product decision, a stop condition no longer changes an order&#039;s status or excludes it from priority.</p></div>
+    </div>
+  </article></div>
+    </section>
+    <section>
+      <div class="section-heading">
+        <span class="section-number">06</span>
+        <div><h2>4. Future-demand derivation</h2><p class="section-summary">Demand without a production work order is still calculated from the same filtered source rows, but by product decision it only feeds the data-quality count — the Board no longer displays a demand panel or KPI.</p></div>
+      </div>
+      <div class="grid">
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Future-demand candidate</h3><p class="source">production-priority.ts → hasFutureShipDate(), demand</p></div>
+      <span class="status fulfilled">Output</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">Keep required rows where productionordernumber is blank AND salesordernumber is non-empty AND confirmedshippingdate or requestedshippingdate is usable and &gt;= today at midnight.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">Each candidate becomes demand[] with status NO WORK ORDER and never enters orders[] or the executable priority sequence.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Demand display fields</h3><p class="source">production-priority.ts → demand.map()</p></div>
+      <span class="status fulfilled">Transform</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">requestedDate = ordercreationdatetime || requestedshippingdate; salesShipDate = confirmedshippingdate || requestedshippingdate; qty = Number(orderedsalesquantity) or null.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">These fields remain on the API response for downstream/data-quality use, even though the Board no longer renders a demand panel.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Data-quality-only usage</h3><p class="source">production-priority.ts → dataQuality.futureDemand</p></div>
+      <span class="status fulfilled">Output</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">demand.length feeds dataQuality.futureDemand; the client does not filter, sort, or display individual demand rows.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">Future demand without a work order is visible only as a single count in the collapsible Data quality panel, not as an interactive list.</p></div>
+    </div>
+  </article></div>
+    </section>
+    <section>
+      <div class="section-heading">
+        <span class="section-number">07</span>
+        <div><h2>5. Data-quality calculations and API response</h2><p class="section-summary">The API counts the same normalized collections that it returns, so the data-quality panel is traceable to the live response.</p></div>
+      </div>
+      <div class="grid">
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Work-order shape</h3><p class="source">production-priority.ts → dataQuality</p></div>
+      <span class="status fulfilled">Output</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">machineRows = required filtered rows; validWorkOrders = orders whose workOrder matches /^\d{6}$/; duplicateWorkOrders = number of distinct work-order values with count &gt; 1.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">The panel shows source-row volume, valid six-digit work-order count, and duplicate work-order count.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Sales-order linkage counts</h3><p class="source">production-priority.ts → dataQuality; production-priority-filters.ts → isValidatedProductionPriorityLinkage()</p></div>
+      <span class="status fulfilled">Output</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">populatedSalesOrders and compatibility linkedOrders count non-empty salesOrder values; validatedSalesOrderLinks count all seven linkage prerequisites passing; partialLinkages count linkageStatus = Partial; unlinkedOrders count linkageStatus = Unlinked.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">Operators can distinguish a populated sales-order number from a fully validated header/line/production-demand relationship.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Demand and validity counts</h3><p class="source">production-priority.ts → dataQuality</p></div>
+      <span class="status fulfilled">Output</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">futureDemand = demand.length; futureDemandAlreadyLinked is currently 0; invalidSC3 counts returned orders with blank SC3; invalidDates counts source rows with a non-null deliverydate that cannot be parsed.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">The response exposes forward-demand and remaining shape/date indicators used by the Board and downloadable dataflow document.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Response validation and freshness</h3><p class="source">production-priority.ts → GetProductionPriorityResponse.parse(), getSnapshot()</p></div>
+      <span class="status fulfilled">Guardrail</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">Parse orders, demand, dataQuality, and dataAsOf with GetProductionPriorityResponse; cache a successful snapshot for 60,000 ms; dataAsOf = &#039;Azure PostgreSQL · &#039; + current ISO timestamp.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">A malformed response fails explicitly, repeated reads reuse the short server cache, and the browser can label evidence with its source timestamp.</p></div>
+    </div>
+  </article></div>
+    </section>
+    <section>
+      <div class="section-heading">
+        <span class="section-number">08</span>
+        <div><h2>6. Browser calculations and operator views</h2><p class="section-summary">The browser does not query the database. It transforms the validated API snapshot into the selected team’s queue and presentation state.</p></div>
+      </div>
+      <div class="grid">
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Team list, counts, and default</h3><p class="source">use-production-data.ts → useSC3Teams(), useSC3Counts(), useSessionSC3()</p></div>
+      <span class="status fulfilled">Transform</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">teams = unique non-empty order.SC3 values sorted alphabetically; team count = non-complete orders per SC3; default team = highest count, then alphabetical tie-breaker; selected team persists in sessionStorage.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">SC3 controls the queue, KPIs, exceptions, and demand view without changing the server snapshot.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Queue filtering</h3><p class="source">use-production-data.ts → useProductionData()</p></div>
+      <span class="status fulfilled">Transform</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">Select a specific SC3 team or All; search lowercases and matches workOrder, salesOrder, or customer; then apply the Started/Released status filter or the Past Due filter.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">The visible table is a selected, searchable operational view of the snapshot, with All providing a cross-team queue.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Queue sorting</h3><p class="source">use-production-data.ts → byDateThenWorkOrder(), useProductionData()</p></div>
+      <span class="status fulfilled">Transform</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">Work order/customer sorts lexically. Date sorts use the selected date ascending, with missing dates last and work-order tie-breaks. Default priority sort uses build end date, sales ship date, and work order.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">The first row in the visible queue is the next executable work order.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Executable priority number</h3><p class="source">use-production-data.ts → getExecutablePriority()</p></div>
+      <span class="status fulfilled">Output</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">priority = index of the order in the visible, sorted queue + 1.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">By product decision, every visible order receives a numeric priority; a stop condition no longer removes an order from the sequence.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>KPI calculations</h3><p class="source">use-production-data.ts → useStats()</p></div>
+      <span class="status fulfilled">Output</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">Active work orders = total visible orders; Started/Released = visible orders with that status; Build date past due = visible orders whose buildEndDate is before today.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">The header KPI strip reflects the current team, search, status filter, date filter, and sort view.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Live evidence state</h3><p class="source">use-production-data.ts → usePrioritySnapshot(); generated documents are static and do not present live evidence</p></div>
+      <span class="status fulfilled">Guardrail</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">Loading while the first query is pending; Live after a successful snapshot; Stale when a refresh fails after a prior snapshot; Unavailable when the first query fails with no snapshot.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">The Dataflow and Requirements Review documents do not present empty fallback zeros as verified live evidence.</p></div>
+    </div>
+  </article></div>
+    </section>
+    <section>
+      <div class="section-heading">
+        <span class="section-number">09</span>
+        <div><h2>7. Deliberately not calculated</h2><p class="section-summary">The following values are intentionally absent from the dataflow and API because the product scope is operational priority, not capacity planning.</p></div>
+      </div>
+      <div class="grid">
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Capacity and utilization</h3><p class="source">Product scope decision documented in the Requirements Review and replit.md</p></div>
+      <span class="status fulfilled">Guardrail</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">No available hours, labor hours, resource loading, utilization percentage, finite scheduling, bottleneck score, or capacity gap is calculated.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">The board communicates sequence, lateness, and stops without making capacity claims.</p></div>
+    </div>
+  </article>
+  <article class="card">
+    <div class="card-header">
+      <div><h3>Executable schedule</h3><p class="source">use-production-data.ts → getExecutablePriority()</p></div>
+      <span class="status fulfilled">Guardrail</span>
+    </div>
+    <div class="two-col">
+      <div class="inset"><div class="label">Calculation / rule</div><p class="copy">Priority is an ordered view index, not a promised start time, finish time, machine allocation, or optimized schedule.</p></div>
+      <div class="inset"><div class="label">Result in the app</div><p class="copy">Supervisors use the order as a transparent decision aid; the app does not imply that an order is scheduled for a particular hour.</p></div>
+    </div>
+  </article></div>
+    </section>
+  <footer>Maintenance: update <code>src/lib/dataflow-content.ts</code> and regenerate this document whenever a source object, join, filter, stop rule, API field, calculation, or browser transformation changes.</footer></main></body>
+</html>
