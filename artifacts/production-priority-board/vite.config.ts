@@ -5,7 +5,7 @@ import { defineConfig } from 'vite';
 
 import runtimeErrorOverlay from '@replit/vite-plugin-runtime-error-modal';
 
-const rawPort = process.env.PORT;
+const rawPort = Number(process.env.PORT ?? 5177);
 
 if (!rawPort) {
   throw new Error(
@@ -19,7 +19,7 @@ if (Number.isNaN(port) || port <= 0) {
   throw new Error(`Invalid PORT value: "${rawPort}"`);
 }
 
-const basePath = process.env.BASE_PATH;
+const basePath = process.env.BASE_PATH ?? "/";
 
 if (!basePath) {
   throw new Error(
@@ -33,15 +33,15 @@ export default defineConfig({
     react(),
     tailwindcss(),
     runtimeErrorOverlay(),
-    ...(process.env.NODE_ENV !== 'production' &&
+    ...(process.env.NODE_ENV !== "production" &&
     process.env.REPL_ID !== undefined
       ? [
-          await import('@replit/vite-plugin-cartographer').then((m) =>
+          await import("@replit/vite-plugin-cartographer").then((m) =>
             m.cartographer({
-              root: path.resolve(import.meta.dirname, '..'),
+              root: path.resolve(import.meta.dirname, ".."),
             }),
           ),
-          await import('@replit/vite-plugin-dev-banner').then((m) =>
+          await import("@replit/vite-plugin-dev-banner").then((m) =>
             m.devBanner(),
           ),
         ]
@@ -65,14 +65,16 @@ export default defineConfig({
     emptyOutDir: true,
   },
   server: {
-    port,
-    strictPort: true,
-    host: '0.0.0.0',
-    allowedHosts: true,
-    fs: {
-      strict: true,
+  port,
+  host: "0.0.0.0",
+  proxy: {
+    "/api": {
+      target: "http://localhost:3003",
+      changeOrigin: true,
+      secure: false,
     },
   },
+},
   preview: {
     port,
     host: '0.0.0.0',
