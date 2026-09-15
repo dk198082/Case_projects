@@ -1,0 +1,30 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "TQPvCW8oRW-rAqSlVL-C1"
+uri = "file://artifacts/production-priority-board/public/documents/production-priority-requirements-review.html"
+type = "text"
+title = "Production Priority Requirements Review"
+description = "Standalone downloadable requirements review document generated from the app manifest."
+logical_id = "63ecb6ca-377b-4ffd-9241-0717e2ddc3e6"
+content_hash = "sha256:37a94b913061846fd97da7f1196e5f4e7a182a7aaecbbbcd585143bbaac62f8b"
+size = 25965
+mtime_ms = 1787718443016
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:ee04a9af-f4f9-4fc2-b3cb-91bee27c5842/63ecb6ca-377b-4ffd-9241-0717e2ddc3e6/9d8fbd53-ae36-49f6-9be0-28bba7e72852"
+storage_version_token = "1787718494827706"
+content_type = "text/html"
+
+[[outputs]]
+id = "COtMELUwuJkndpZJGBkuH"
+uri = "file://artifacts/production-priority-board/public/documents/production-priority-dataflow.html"
+type = "text"
+title = "Production Priority Dataflow"
+description = "Standalone downloadable dataflow document covering source objects, joins, rules, and calculations."
+logical_id = "fb08f57f-052b-44e3-9a57-27b40328c444"
+content_hash = "sha256:f545a6509a45d431bb28e09b5efcc8a9154085f680b2c559bad52560072ff0ed"
+size = 38874
+mtime_ms = 1787718443020
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:ee04a9af-f4f9-4fc2-b3cb-91bee27c5842/fb08f57f-052b-44e3-9a57-27b40328c444/60b570dd-7bb0-4183-a145-8c2f5a6bc047"
+storage_version_token = "1787718495473788"
+content_type = "text/html"

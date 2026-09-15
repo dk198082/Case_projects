@@ -1,0 +1,8 @@
+- [Azure PostgreSQL production source](azure-postgres-source.md) — Azure must take precedence over the managed database when both connections exist.
+- [Sales-linkage audit safety](sales-linkage-audit-performance.md) — Exact linkage validation must stay responsive and must never weaken independent source stop behavior.
+- [API contract regeneration](api-contract-regeneration.md) — Rebuild generated shared client types before checking consumers after contract changes.
+- [Production Priority Board route-derived build dates](production-priority-board-route-dates.md) — D365FO route source view, warehouse-step filtering, and duplicate/placeholder row gotchas.
+- [Production Priority Board sales-order-line schema](production-priority-board-sales-lines.md) — field-to-column mapping, and never use LATERAL per-row joins against large staging tables.
+- [Production Priority Board production groups](production-priority-board-production-groups.md) — Production Group is the third slash-delimited Resource segment.
+- [Production Priority Board KPI filters](production-priority-board-kpi-filters.md) — KPI cards show scoped totals and directly control the queue filter.
+- [Admin Console role labels](admin-console-role-labels.md) — app selection is separate; access responses use bare Read Only and Read / Write labels.
