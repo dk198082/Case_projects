@@ -8,6 +8,7 @@ import {
   isValidatedProductionPriorityLinkage,
   requiredProductionPriorityWhereSql,
 } from "./production-priority-filters";
+import { getSalesOrderCustomerName } from "./production-priority-mapping";
 
 type ProductionRow = {
   salesordernumber: string | null;
@@ -40,6 +41,7 @@ type ProductionRow = {
   assy_resource: string | null;
   machineresource: string | null;
   productiongroupname: string | null;
+  salesheadercustomername: string | null;
   salesheadermatched: boolean;
   saleslinematched: boolean;
   productiondemandmatched: boolean;
@@ -164,6 +166,8 @@ async function loadSnapshot(): Promise<PrioritySnapshot> {
     linkage_audit AS MATERIALIZED (
       SELECT
         machine.audit_row_id,
+        MIN(NULLIF(BTRIM(COALESCE(header.salesordername, '')), ''))
+          AS salesheadercustomername,
         COALESCE(BOOL_OR(header.salesordernumber IS NOT NULL), FALSE) AS salesheadermatched,
         COALESCE(BOOL_OR(line.salesordernumber IS NOT NULL), FALSE) AS saleslinematched,
         COALESCE(BOOL_OR(production.productionordernumber IS NOT NULL), FALSE) AS productiondemandmatched,
@@ -358,6 +362,7 @@ async function loadSnapshot(): Promise<PrioritySnapshot> {
       machine."Task" AS task,
       machine."Assy_Resource" AS assy_resource,
       machine."MachineResource" AS machineresource,
+      linkage_audit.salesheadercustomername,
       linkage_audit.salesheadermatched,
       linkage_audit.saleslinematched,
       linkage_audit.productiondemandmatched,
@@ -433,7 +438,7 @@ async function loadSnapshot(): Promise<PrioritySnapshot> {
       id: workOrder || `azure-order-${index + 1}`,
       workOrder,
       salesOrder: text(row.salesordernumber),
-      customer: text(row.deliveryaddressname) || text(row.name) || "—",
+      customer: getSalesOrderCustomerName(row),
       customerPO: "",
       itemNumber: text(row.itemnumber),
       description: text(row.itemdesc) || text(row.productionordername),
@@ -467,7 +472,7 @@ async function loadSnapshot(): Promise<PrioritySnapshot> {
     .map((row, index) => ({
       id: `azure-demand-${text(row.salesordernumber)}-${text(row.itemnumber) || "item"}-${index + 1}`,
       salesOrder: text(row.salesordernumber),
-      customer: text(row.deliveryaddressname) || text(row.name) || "—",
+      customer: getSalesOrderCustomerName(row),
       customerPO: "",
       itemNumber: text(row.itemnumber),
       description: text(row.itemdesc),

@@ -1,5 +1,12 @@
 import type { ProductionOrder } from "@/lib/mock-data";
 
+const toExcelDate = (value: string) => {
+  if (!value) return null;
+
+  const date = new Date(`${value.slice(0, 10)}T00:00:00.000Z`);
+  return Number.isNaN(date.getTime()) ? value : date;
+};
+
 export async function exportProductionGridToExcel(
   orders: ProductionOrder[],
   priorityById: ReadonlyMap<string, number>,
@@ -39,9 +46,9 @@ export async function exportProductionGridToExcel(
       customer: order.customer,
       salesOrder: order.salesOrder,
       customerPO: order.customerPO,
-      buildStartDate: order.buildStartDate,
-      buildEndDate: order.buildEndDate,
-      salesShipDate: order.salesShipDate,
+      buildStartDate: toExcelDate(order.buildStartDate),
+      buildEndDate: toExcelDate(order.buildEndDate),
+      salesShipDate: toExcelDate(order.salesShipDate),
       status: order.status,
       productionGroup: order.productionGroup,
       productionGroupName: order.productionGroupName,
@@ -59,6 +66,9 @@ export async function exportProductionGridToExcel(
     pattern: "solid",
     fgColor: { argb: "FFB7FF00" },
   };
+  worksheet.getColumn("buildStartDate").numFmt = "mm/dd/yyyy";
+  worksheet.getColumn("buildEndDate").numFmt = "mm/dd/yyyy";
+  worksheet.getColumn("salesShipDate").numFmt = "mm/dd/yyyy";
 
   const buffer = await workbook.xlsx.writeBuffer();
   const blob = new Blob([new Uint8Array(buffer)], {

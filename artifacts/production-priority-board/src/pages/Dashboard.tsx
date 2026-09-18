@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import {
   type BoardFilter,
+  toggleClassificationSelection,
   usePrioritySnapshot,
   useProductionData,
   useSC1Counts,
@@ -117,14 +118,21 @@ export function Dashboard() {
   const { user } = useAuth();
   const { snapshot, isLoading, error } = usePrioritySnapshot();
   const { selectedSC1, setSelectedSC1 } = useSessionSC1(snapshot.orders);
-  const { selectedSC3, setSelectedSC3 } = useSessionSC3(snapshot.orders);
   const groups = useSC1Groups(snapshot.orders);
   const groupCounts = useSC1Counts(snapshot.orders);
-  const teams = useSC3TeamsForGroup(snapshot.orders, selectedSC1);
   const groupScopedOrders = useMemo(
-    () => (selectedSC1 === "ALL" ? snapshot.orders : snapshot.orders.filter((order) => order.SC1 === selectedSC1)),
+    () => {
+      if (!selectedSC1.length) return snapshot.orders;
+      const selectedGroups = new Set(selectedSC1);
+      return snapshot.orders.filter((order) =>
+        selectedGroups.has(order.SC1),
+      );
+    },
     [snapshot.orders, selectedSC1],
   );
+  const { selectedSC3, setSelectedSC3 } =
+    useSessionSC3(groupScopedOrders);
+  const teams = useSC3TeamsForGroup(snapshot.orders, selectedSC1);
   const teamCounts = useSC3Counts(groupScopedOrders);
   const [filter, setFilter] = useState<BoardFilter>("All Active");
   const [search, setSearch] = useState("");
@@ -141,9 +149,17 @@ export function Dashboard() {
   });
   const [isExporting, setIsExporting] = useState(false);
 
-  const handleSelectGroup = (group: string) => {
-    setSelectedSC1(group);
-    setSelectedSC3("ALL");
+  const handleSelectGroup = (group: string, additive: boolean) => {
+    setSelectedSC1((current) =>
+      toggleClassificationSelection(current, group, additive),
+    );
+    setSelectedSC3([]);
+  };
+
+  const handleSelectTeam = (team: string, additive: boolean) => {
+    setSelectedSC3((current) =>
+      toggleClassificationSelection(current, team, additive),
+    );
   };
 
   const scopedOrders = useProductionData(
@@ -397,10 +413,14 @@ export function Dashboard() {
           <div className="flex flex-wrap gap-2 pb-1">
             <button
               type="button"
-              onClick={() => handleSelectGroup("ALL")}
+              onClick={() => {
+                setSelectedSC1([]);
+                setSelectedSC3([]);
+              }}
+              aria-pressed={selectedSC1.length === 0}
               className={cn(
                 "whitespace-nowrap rounded-sm border px-3 py-2 font-mono text-xs transition-colors",
-                selectedSC1 === "ALL"
+                selectedSC1.length === 0
                   ? "border-primary bg-primary text-[#00281D] shadow-[0_0_18px_rgba(183,255,0,.12)]"
                   : "border-border bg-card/45 text-muted-foreground hover:border-primary/45 hover:text-primary",
               )}
@@ -411,10 +431,17 @@ export function Dashboard() {
               <button
                 type="button"
                 key={group}
-                onClick={() => handleSelectGroup(group)}
+                onClick={(event) =>
+                  handleSelectGroup(
+                    group,
+                    event.ctrlKey || event.metaKey,
+                  )
+                }
+                aria-pressed={selectedSC1.includes(group)}
+                title="Ctrl/Cmd-click to select multiple"
                 className={cn(
                   "whitespace-nowrap rounded-sm border px-3 py-2 font-mono text-xs transition-colors",
-                  group === selectedSC1
+                  selectedSC1.includes(group)
                     ? "border-primary bg-primary text-[#00281D] shadow-[0_0_18px_rgba(183,255,0,.12)]"
                     : "border-border bg-card/45 text-muted-foreground hover:border-primary/45 hover:text-primary",
                 )}
@@ -435,24 +462,32 @@ export function Dashboard() {
           <div className="flex flex-wrap gap-2 pb-1">
             <button
               type="button"
-              onClick={() => setSelectedSC3("ALL")}
+              onClick={() => setSelectedSC3([])}
+              aria-pressed={selectedSC3.length === 0}
               className={cn(
                 "whitespace-nowrap rounded-sm border px-3 py-2 font-mono text-xs transition-colors",
-                selectedSC3 === "ALL"
+                selectedSC3.length === 0
                   ? "border-primary bg-primary text-[#00281D] shadow-[0_0_18px_rgba(183,255,0,.12)]"
                   : "border-border bg-card/45 text-muted-foreground hover:border-primary/45 hover:text-primary",
               )}
             >
-              All <span className="ml-1 opacity-70">{selectedSC1 === "ALL" ? snapshot.orders.length : groupCounts.get(selectedSC1) ?? 0}</span>
+              All <span className="ml-1 opacity-70">{groupScopedOrders.length}</span>
             </button>
             {teams.map((team) => (
               <button
                 type="button"
                 key={team}
-                onClick={() => setSelectedSC3(team)}
+                onClick={(event) =>
+                  handleSelectTeam(
+                    team,
+                    event.ctrlKey || event.metaKey,
+                  )
+                }
+                aria-pressed={selectedSC3.includes(team)}
+                title="Ctrl/Cmd-click to select multiple"
                 className={cn(
                   "whitespace-nowrap rounded-sm border px-3 py-2 font-mono text-xs transition-colors",
-                  team === selectedSC3
+                  selectedSC3.includes(team)
                     ? "border-primary bg-primary text-[#00281D] shadow-[0_0_18px_rgba(183,255,0,.12)]"
                     : "border-border bg-card/45 text-muted-foreground hover:border-primary/45 hover:text-primary",
                 )}
@@ -542,13 +577,14 @@ export function Dashboard() {
         <section className="grid gap-4">
           <div className="min-w-0 overflow-hidden rounded-sm border border-border/70 bg-card/30">
             <div className="overflow-auto">
-              <Table className="min-w-[1170px]">
+              <Table className="min-w-[1290px]">
                 <TableHeader className="sticky top-0 z-10 bg-[#07392b]">
                   <TableRow className="border-border/80 hover:bg-transparent">
                     {sortableHead("priority", "Priority", "w-[74px]")}
                     {sortableHead("workOrder", "Work order", "w-[120px]")}
                     {sortableHead("part", "Part number / Description", "w-[190px]", "Part or description")}
-                    {sortableHead("customer", "Customer / sales order", "min-w-[230px]", "Customer or SO")}
+                    {sortableHead("salesOrder", "Sales order", "w-[120px]")}
+                    {sortableHead("customer", "Customer", "min-w-[230px]", "Customer or reference")}
                     {sortableHead("buildStartDate", "Build start", "w-[142px]")}
                     {sortableHead("buildEndDate", "Build end", "w-[142px]")}
                     {sortableHead("salesShipDate", "Ship date", "w-[142px]")}
@@ -559,7 +595,7 @@ export function Dashboard() {
                 <TableBody>
                   {orders.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} className="h-40 text-center font-mono text-xs text-muted-foreground">
+                      <TableCell colSpan={10} className="h-40 text-center font-mono text-xs text-muted-foreground">
                         No active work orders match the current view.
                       </TableCell>
                     </TableRow>
@@ -587,10 +623,17 @@ export function Dashboard() {
                             <p className="mt-0.5 max-w-[190px] truncate text-[10px] text-muted-foreground">{order.description || "—"}</p>
                           </TableCell>
                           <TableCell className="py-2">
-                            <p className="max-w-[310px] truncate text-xs font-medium text-foreground">{order.customer}</p>
-                            <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
-                              SO {order.salesOrder || "—"} {order.customerPO ? `· Ref ${order.customerPO}` : ""}
+                            <p className="font-mono text-xs font-semibold text-foreground">
+                              {order.salesOrder || "—"}
                             </p>
+                          </TableCell>
+                          <TableCell className="py-2">
+                            <p className="max-w-[310px] truncate text-xs font-medium text-foreground">{order.customer}</p>
+                            {order.customerPO && (
+                              <p className="mt-0.5 font-mono text-[10px] text-muted-foreground">
+                                Ref {order.customerPO}
+                              </p>
+                            )}
                           </TableCell>
                           <TableCell className="py-2">
                             <p className="font-mono text-xs">

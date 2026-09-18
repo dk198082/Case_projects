@@ -122,24 +122,78 @@ const getDefaultSC3 = (orders: TeamOrder[]) => {
   )[0]?.[0] ?? "";
 };
 
+const readStoredSelections = (
+  value: string | null,
+  availableValues: ReadonlySet<string>,
+) => {
+  if (!value) return null;
+  if (value === "ALL") return [];
+
+  try {
+    const parsed = JSON.parse(value);
+    if (Array.isArray(parsed)) {
+      return parsed.filter(
+        (item): item is string =>
+          typeof item === "string" && availableValues.has(item),
+      );
+    }
+  } catch {
+    // Support the previous single-value session storage format.
+  }
+
+  return availableValues.has(value) ? [value] : null;
+};
+
+export const toggleClassificationSelection = (
+  current: string[],
+  value: string,
+  additive: boolean,
+) => {
+  if (!additive) return [value];
+  return current.includes(value)
+    ? current.filter((item) => item !== value)
+    : [...current, value];
+};
+
+export const matchesClassificationSelections = (
+  order: Pick<ProductionOrder, "SC1" | "SC3">,
+  selectedSC1: string[],
+  selectedSC3: string[],
+) =>
+  (!selectedSC1.length || selectedSC1.includes(order.SC1)) &&
+  (!selectedSC3.length || selectedSC3.includes(order.SC3));
+
 export function useSessionSC3(orders: TeamOrder[]) {
-  const [selectedSC3, setSelectedSC3] = useState("");
+  const [selectedSC3, setSelectedSC3] = useState<string[]>([]);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   useEffect(() => {
     if (!orders.length) return;
 
-    const storedTeam = sessionStorage.getItem("sc3-team");
     const availableTeams = new Set(orders.map((order) => order.SC3).filter(Boolean));
-    const nextTeam = storedTeam === "ALL" || (storedTeam && availableTeams.has(storedTeam))
-      ? storedTeam
-      : getDefaultSC3(orders);
+    if (!hasInitialized) {
+      const storedTeams = readStoredSelections(
+        sessionStorage.getItem("sc3-team"),
+        availableTeams,
+      );
+      const defaultTeam = getDefaultSC3(orders);
+      setSelectedSC3(storedTeams ?? (defaultTeam ? [defaultTeam] : []));
+      setHasInitialized(true);
+      return;
+    }
 
-    setSelectedSC3((current) => current || nextTeam);
-  }, [orders]);
+    setSelectedSC3((current) =>
+      current.length
+        ? current.filter((team) => availableTeams.has(team))
+        : current,
+    );
+  }, [hasInitialized, orders]);
 
   useEffect(() => {
-    if (selectedSC3) sessionStorage.setItem("sc3-team", selectedSC3);
-  }, [selectedSC3]);
+    if (hasInitialized) {
+      sessionStorage.setItem("sc3-team", JSON.stringify(selectedSC3));
+    }
+  }, [hasInitialized, selectedSC3]);
 
   return { selectedSC3, setSelectedSC3 };
 }
@@ -176,23 +230,35 @@ const getDefaultSC1 = (orders: GroupOrder[]) => {
 };
 
 export function useSessionSC1(orders: GroupOrder[]) {
-  const [selectedSC1, setSelectedSC1] = useState("");
+  const [selectedSC1, setSelectedSC1] = useState<string[]>([]);
+  const [hasInitialized, setHasInitialized] = useState(false);
 
   useEffect(() => {
     if (!orders.length) return;
 
-    const storedGroup = sessionStorage.getItem("sc1-group");
     const availableGroups = new Set(orders.map((order) => order.SC1).filter(Boolean));
-    const nextGroup = storedGroup === "ALL" || (storedGroup && availableGroups.has(storedGroup))
-      ? storedGroup
-      : "ALL";
+    if (!hasInitialized) {
+      const storedGroups = readStoredSelections(
+        sessionStorage.getItem("sc1-group"),
+        availableGroups,
+      );
+      setSelectedSC1(storedGroups ?? []);
+      setHasInitialized(true);
+      return;
+    }
 
-    setSelectedSC1((current) => current || nextGroup);
-  }, [orders]);
+    setSelectedSC1((current) =>
+      current.length
+        ? current.filter((group) => availableGroups.has(group))
+        : current,
+    );
+  }, [hasInitialized, orders]);
 
   useEffect(() => {
-    if (selectedSC1) sessionStorage.setItem("sc1-group", selectedSC1);
-  }, [selectedSC1]);
+    if (hasInitialized) {
+      sessionStorage.setItem("sc1-group", JSON.stringify(selectedSC1));
+    }
+  }, [hasInitialized, selectedSC1]);
 
   return { selectedSC1, setSelectedSC1 };
 }
@@ -215,33 +281,37 @@ export function useSC1Counts(orders: GroupOrder[]) {
   }, [orders]);
 }
 
-/** SC3 teams that belong to the given SC1 group ("ALL" returns every team). */
-export function useSC3TeamsForGroup(orders: GroupedTeamOrder[], sc1: string) {
+/** SC3 teams belonging to the selected SC1 groups (empty means every group). */
+export function useSC3TeamsForGroup(
+  orders: GroupedTeamOrder[],
+  sc1: string[],
+) {
   return useMemo(() => {
-    const scoped = sc1 && sc1 !== "ALL" ? orders.filter((order) => order.SC1 === sc1) : orders;
+    const selectedGroups = new Set(sc1);
+    const scoped = selectedGroups.size
+      ? orders.filter((order) => selectedGroups.has(order.SC1))
+      : orders;
     return Array.from(new Set(scoped.map((order) => order.SC3).filter(Boolean))).sort();
   }, [orders, sc1]);
 }
 
 export function useProductionData(
   allOrders: ProductionPriorityResponse["orders"],
-  sc3: string,
+  sc3: string[],
   search: string,
   sortBy: SortKey = "priority",
   filter: BoardFilter = "All Active",
-  sc1: string = "ALL",
+  sc1: string[] = [],
 ) {
   const data = useMemo(() => allOrders.map(toProductionOrder), [allOrders]);
 
   return useMemo(() => {
     let result = data;
 
-    if (sc1 && sc1 !== "ALL") {
-      result = result.filter((order) => order.SC1 === sc1);
-    }
-
-    if (sc3 && sc3 !== "ALL") {
-      result = result.filter((order) => order.SC3 === sc3);
+    if (sc1.length || sc3.length) {
+      result = result.filter((order) =>
+        matchesClassificationSelections(order, sc1, sc3),
+      );
     }
 
     const normalizedSearch = search.trim().toLowerCase();

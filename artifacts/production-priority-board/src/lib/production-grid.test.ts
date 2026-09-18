@@ -55,6 +55,7 @@ const order = (
 const orders = [
   order("1", {
     workOrder: "WO-10",
+    salesOrder: "SO-10",
     itemNumber: "PART-B",
     customer: "Beta",
     buildEndDate: "2026-09-20",
@@ -62,6 +63,7 @@ const orders = [
   }),
   order("2", {
     workOrder: "WO-2",
+    salesOrder: "SO-2",
     itemNumber: "PART-A",
     customer: "Acme",
     buildEndDate: "2026-09-12",
@@ -84,6 +86,17 @@ describe("applyProductionGridView", () => {
 
     expect(result.map((item) => item.id)).toEqual(["2"]);
     expect(priorities.get(result[0]?.id ?? "")).toBe(2);
+  });
+
+  it("filters and sorts sales orders independently from customers", () => {
+    const result = applyProductionGridView(
+      orders,
+      priorities,
+      { ...EMPTY_GRID_FILTERS, salesOrder: "so-10" },
+      { key: "salesOrder", direction: "asc" },
+    );
+
+    expect(result.map((item) => item.id)).toEqual(["1"]);
   });
 
   it("sorts text naturally in either direction", () => {

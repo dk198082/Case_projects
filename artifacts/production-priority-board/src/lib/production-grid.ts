@@ -5,6 +5,7 @@ export type GridColumnKey =
   | "priority"
   | "workOrder"
   | "part"
+  | "salesOrder"
   | "customer"
   | "buildStartDate"
   | "buildEndDate"
@@ -33,6 +34,7 @@ export const EMPTY_GRID_FILTERS: GridColumnFilters = {
   priority: "",
   workOrder: "",
   part: "",
+  salesOrder: "",
   customer: "",
   buildStartDate: "",
   buildEndDate: "",
@@ -62,8 +64,10 @@ const columnText = (
       return order.workOrder;
     case "part":
       return `${order.itemNumber} ${order.description}`;
+    case "salesOrder":
+      return order.salesOrder;
     case "customer":
-      return `${order.customer} ${order.salesOrder} ${order.customerPO}`;
+      return `${order.customer} ${order.customerPO}`;
     case "buildStartDate":
       return `${order.buildStartDate} ${formatCalendarDate(order.buildStartDate)}`;
     case "buildEndDate":
