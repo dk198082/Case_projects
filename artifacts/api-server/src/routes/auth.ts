@@ -65,7 +65,7 @@ router.get("/login", async (req, res, next) => {
   }
 });
 
-router.get("/auth/callback", async (req, res) => {
+router.get("/callback", async (req, res) => {
   const code = typeof req.query.code === "string" ? req.query.code : "";
   const state = typeof req.query.state === "string" ? req.query.state : "";
 
@@ -158,7 +158,7 @@ router.get("/me", requireLogin, (req, res) => {
  * The popup tells the Workspace that Production Priority authentication
  * has completed successfully, then closes itself.
  */
-router.get("/auth/embedded-complete", (req, res) => {
+router.get("/embedded-complete", (req, res) => {
   const workspaceOrigin =
     process.env.WORKSPACE_FRONTEND_URL?.trim();
 
