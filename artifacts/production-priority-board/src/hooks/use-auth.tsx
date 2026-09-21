@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      const response = await fetch("/api/me", {
+      const response = await fetch("/api/auth/me", {
         credentials: "same-origin",
         cache: "no-store",
         headers: { Accept: "application/json" },
