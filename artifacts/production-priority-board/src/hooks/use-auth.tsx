@@ -101,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const beginLogin = useCallback(() => {
     const returnTo = `${window.location.pathname}${window.location.search}`;
-    const loginUrl = `/api/login?returnTo=${encodeURIComponent(returnTo)}`;
+    const loginUrl = `/api/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
     const embedded = window.top !== window.self;
 
     if (embedded) {

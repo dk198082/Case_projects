@@ -379,7 +379,7 @@ export function Dashboard() {
                 {user?.role === "editor" ? "Read / write" : "Read only"}
               </p>
             </div>
-            <form action="/api/logout" method="post">
+            <form action="/api/auth/logout" method="post">
               <button
                 type="submit"
                 className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
