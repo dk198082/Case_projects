@@ -4,11 +4,12 @@ import { Router, type IRouter } from "express";
 import { requireLogin } from "../middleware/auth";
 import {
   getProductionPriorityLinkageStatus,
-  isRequiredProductionPriorityRow,
   isValidatedProductionPriorityLinkage,
-  requiredProductionPriorityWhereSql,
 } from "./production-priority-filters";
-import { getSalesOrderCustomerName } from "./production-priority-mapping";
+import {
+  getSalesOrderCustomerName,
+  getWorkOrderQuantity,
+} from "./production-priority-mapping";
 
 type ProductionRow = {
   salesordernumber: string | null;
@@ -23,6 +24,9 @@ type ProductionRow = {
   itemdesc: string | null;
   itemnumber: string | null;
   orderedsalesquantity: string | number | null;
+  estimatedquantity: string | number | null;
+  scheduledquantity: string | number | null;
+  remainingreportasfinishedquantity: string | number | null;
   deliverydate: Date | null;
   scheduledstartdate: Date | null;
   productionorderstatus: number | null;
@@ -144,245 +148,26 @@ async function loadSnapshot(): Promise<PrioritySnapshot> {
     throw new Error("AZURE_PG_SCHEMA must be a valid PostgreSQL schema identifier.");
   }
 
-  const tableName = `${quoteIdentifier(schema)}.${quoteIdentifier("vw_salesprodmachines365")}`;
-  const salesOrderHeaderTableName =
-    `${quoteIdentifier(schema)}.${quoteIdentifier("salesorderheaderv3staging")}`;
-  const salesOrderLineTableName =
-    `${quoteIdentifier(schema)}.${quoteIdentifier("salesorderlinev2staging")}`;
-  const productionOrderHeaderTableName =
-    `${quoteIdentifier(schema)}.${quoteIdentifier("prodproductionorderheaderstaging")}`;
-  const routeDetailsTableName =
-    `${quoteIdentifier(schema)}.${quoteIdentifier("vw_productionroutedetailsd365")}`;
-  const configTranslationTableName =
-    `${quoteIdentifier(schema)}.${quoteIdentifier("ecoresproductmasterconfigurationtranslationstaging")}`;
-  const productionGroupTableName =
-    `${quoteIdentifier(schema)}.${quoteIdentifier("costproductiongroupstaging")}`;
+  const cacheTableName =
+    `${quoteIdentifier(schema)}.${quoteIdentifier("production_priority_app_cache")}`;
   const result = await pool.query<ProductionRow>(`
-    WITH machine AS MATERIALIZED (
-      SELECT ROW_NUMBER() OVER () AS audit_row_id, machine.*
-      FROM ${tableName} AS machine
-      WHERE ${requiredProductionPriorityWhereSql()}
-    ),
-    linkage_audit AS MATERIALIZED (
-      SELECT
-        machine.audit_row_id,
-        MIN(NULLIF(BTRIM(COALESCE(header.salesordername, '')), ''))
-          AS salesheadercustomername,
-        COALESCE(BOOL_OR(header.salesordernumber IS NOT NULL), FALSE) AS salesheadermatched,
-        COALESCE(BOOL_OR(line.salesordernumber IS NOT NULL), FALSE) AS saleslinematched,
-        COALESCE(BOOL_OR(production.productionordernumber IS NOT NULL), FALSE) AS productiondemandmatched,
-        COALESCE(
-          MIN(NULLIF(BTRIM(COALESCE(line.inventorylotid, '')), ''))
-            FILTER (WHERE production.productionordernumber IS NOT NULL),
-          MIN(NULLIF(BTRIM(COALESCE(line.inventorylotid, '')), '')),
-          ''
-        ) AS inventorylotdemandid
-      FROM machine
-      LEFT JOIN ${salesOrderHeaderTableName} AS header
-        ON BTRIM(COALESCE(machine.salesordernumber, '')) <> ''
-       AND BTRIM(COALESCE(machine.dataareaid, '')) <> ''
-       AND BTRIM(COALESCE(machine.itemnumber, '')) <> ''
-       AND BTRIM(COALESCE(header.salesordernumber, '')) =
-             BTRIM(COALESCE(machine.salesordernumber, ''))
-       AND BTRIM(COALESCE(header.dataareaid, '')) =
-             BTRIM(COALESCE(machine.dataareaid, ''))
-      LEFT JOIN ${salesOrderLineTableName} AS line
-        ON BTRIM(COALESCE(line.salesordernumber, '')) =
-             BTRIM(COALESCE(header.salesordernumber, ''))
-       AND BTRIM(COALESCE(line.dataareaid, '')) =
-             BTRIM(COALESCE(header.dataareaid, ''))
-       AND BTRIM(COALESCE(line.itemnumber, '')) =
-             BTRIM(COALESCE(machine.itemnumber, ''))
-      LEFT JOIN ${productionOrderHeaderTableName} AS production
-        ON BTRIM(COALESCE(production.demandsalesorderlineinventorylotid, '')) =
-             BTRIM(COALESCE(line.inventorylotid, ''))
-       AND BTRIM(COALESCE(production.demandsalesordernumber, '')) =
-             BTRIM(COALESCE(line.salesordernumber, ''))
-       AND BTRIM(COALESCE(production.dataareaid, '')) =
-             BTRIM(COALESCE(line.dataareaid, ''))
-       AND BTRIM(COALESCE(production.itemnumber, '')) =
-             BTRIM(COALESCE(line.itemnumber, ''))
-       AND BTRIM(COALESCE(production.productionordernumber, '')) =
-             BTRIM(COALESCE(machine.productionordernumber, ''))
-       AND BTRIM(COALESCE(line.inventorylotid, '')) <> ''
-      GROUP BY machine.audit_row_id
-    ),
-    route_ops AS MATERIALIZED (
-      -- Only the route's non-warehouse (actual production) operations, and only
-      -- rows carrying a real scheduled date. The source view can carry duplicate
-      -- (order, operation number) rows from route revisions, some of which are
-      -- unpopulated 1900-01-01 placeholders; excluding those up front avoids
-      -- picking a placeholder over the real scheduled row on a tie.
-      SELECT
-        machine.audit_row_id,
-        route.operationnumber,
-        route.scheduledfromdate,
-        route.scheduledenddate
-      FROM machine
-      JOIN ${routeDetailsTableName} AS route
-        ON BTRIM(COALESCE(route.productionordernumber, '')) =
-             BTRIM(COALESCE(machine.productionordernumber, ''))
-       AND BTRIM(COALESCE(route.dataareaid, '')) =
-             BTRIM(COALESCE(machine.dataareaid, ''))
-       AND BTRIM(COALESCE(machine.productionordernumber, '')) <> ''
-      WHERE COALESCE(route.operationname, '') NOT ILIKE 'Warehouse Pick%'
-        AND COALESCE(route.operationname, '') NOT ILIKE 'Warehouse Receive%'
-    ),
-    build_dates AS MATERIALIZED (
-      SELECT
-        audit_row_id,
-        (ARRAY_AGG(scheduledfromdate ORDER BY operationnumber ASC, scheduledfromdate ASC)
-          FILTER (WHERE EXTRACT(YEAR FROM scheduledfromdate) >= 2000))[1] AS buildstartdate,
-        (ARRAY_AGG(scheduledenddate ORDER BY operationnumber DESC, scheduledenddate DESC)
-          FILTER (WHERE EXTRACT(YEAR FROM scheduledenddate) >= 2000))[1] AS buildenddate
-      FROM route_ops
-      GROUP BY audit_row_id
-    ),
-    sales_lines_raw AS MATERIALIZED (
-      -- Every line on the order's sales order (not just the item matching this
-      -- work order), so the pop-out can show the full Shop Floor App line list.
-      SELECT
-        machine.audit_row_id,
-        line.linenum,
-        line.itemnumber AS line_itemnumber,
-        COALESCE(NULLIF(BTRIM(line.itemdesc), ''), line.linedescription) AS line_description,
-        line.productconfigurationid,
-        line.orderedsalesquantity,
-        line.salesunitsymbol,
-        line.salesorderlinestatus,
-        BTRIM(COALESCE(line.salesordernumber, '')) AS line_salesordernumber,
-        BTRIM(COALESCE(line.dataareaid, '')) AS line_dataareaid,
-        BTRIM(COALESCE(line.inventorylotid, '')) AS line_inventorylotid
-      FROM machine
-      JOIN ${salesOrderLineTableName} AS line
-        ON BTRIM(COALESCE(line.salesordernumber, '')) =
-             BTRIM(COALESCE(machine.salesordernumber, ''))
-       AND BTRIM(COALESCE(line.dataareaid, '')) =
-             BTRIM(COALESCE(machine.dataareaid, ''))
-       AND BTRIM(COALESCE(machine.salesordernumber, '')) <> ''
-    ),
-    -- Deduplicated, set-based lookups (plain hash joins below) rather than
-    -- per-row correlated subqueries -- these source tables are large
-    -- (100k-350k rows) and BTRIM() on the join keys prevents index usage, so
-    -- a LATERAL subquery per line row previously forced a full table scan
-    -- per row and made the endpoint take minutes instead of seconds.
-    config_names AS MATERIALIZED (
-      SELECT DISTINCT ON (
-        BTRIM(COALESCE(cfg.productmasterconfigurationid, '')),
-        BTRIM(COALESCE(cfg.productmasternumber, ''))
-      )
-        BTRIM(COALESCE(cfg.productmasterconfigurationid, '')) AS cfg_configid,
-        BTRIM(COALESCE(cfg.productmasternumber, '')) AS cfg_itemnumber,
-        cfg.translatedconfigurationname
-      FROM ${configTranslationTableName} AS cfg
-      WHERE BTRIM(COALESCE(cfg.productmasterconfigurationid, '')) <> ''
-      ORDER BY
-        BTRIM(COALESCE(cfg.productmasterconfigurationid, '')),
-        BTRIM(COALESCE(cfg.productmasternumber, '')),
-        (cfg.languageid = 'en-us') DESC
-    ),
-    production_refs AS MATERIALIZED (
-      SELECT DISTINCT ON (
-        BTRIM(COALESCE(p.dataareaid, '')),
-        BTRIM(COALESCE(p.demandsalesordernumber, '')),
-        BTRIM(COALESCE(p.itemnumber, '')),
-        BTRIM(COALESCE(p.demandsalesorderlineinventorylotid, ''))
-      )
-        BTRIM(COALESCE(p.dataareaid, '')) AS ref_dataareaid,
-        BTRIM(COALESCE(p.demandsalesordernumber, '')) AS ref_salesordernumber,
-        BTRIM(COALESCE(p.itemnumber, '')) AS ref_itemnumber,
-        BTRIM(COALESCE(p.demandsalesorderlineinventorylotid, '')) AS ref_lotid,
-        p.productionordernumber
-      FROM ${productionOrderHeaderTableName} AS p
-      WHERE BTRIM(COALESCE(p.demandsalesorderlineinventorylotid, '')) <> ''
-      ORDER BY
-        BTRIM(COALESCE(p.dataareaid, '')),
-        BTRIM(COALESCE(p.demandsalesordernumber, '')),
-        BTRIM(COALESCE(p.itemnumber, '')),
-        BTRIM(COALESCE(p.demandsalesorderlineinventorylotid, '')),
-        p.productionordernumber DESC
-    ),
-    production_group_names AS MATERIALIZED (
-      SELECT DISTINCT ON (
-        BTRIM(COALESCE(groupid, '')),
-        BTRIM(COALESCE(dataareaid, ''))
-      )
-        BTRIM(COALESCE(groupid, '')) AS productiongroupid,
-        BTRIM(COALESCE(dataareaid, '')) AS productiongroupdataareaid,
-        groupname AS productiongroupname
-      FROM ${productionGroupTableName}
-      WHERE BTRIM(COALESCE(groupid, '')) <> ''
-      ORDER BY
-        BTRIM(COALESCE(groupid, '')),
-        BTRIM(COALESCE(dataareaid, '')),
-        tomodifieddatetime DESC NULLS LAST
-    ),
-    sales_order_lines AS MATERIALIZED (
-      SELECT
-        slr.audit_row_id,
-        jsonb_agg(
-          jsonb_build_object(
-            'line', slr.linenum,
-            'item', slr.line_itemnumber,
-            'description', slr.line_description,
-            'configuration', slr.productconfigurationid,
-            'configname', cfg.translatedconfigurationname,
-            'qty', slr.orderedsalesquantity,
-            'unit', slr.salesunitsymbol,
-            'reference', pref.productionordernumber,
-            'status', slr.salesorderlinestatus
-          )
-          ORDER BY slr.linenum ASC
-        ) AS lines
-      FROM sales_lines_raw AS slr
-      LEFT JOIN config_names AS cfg
-        ON cfg.cfg_configid = BTRIM(COALESCE(slr.productconfigurationid, ''))
-       AND cfg.cfg_itemnumber = BTRIM(COALESCE(slr.line_itemnumber, ''))
-       AND BTRIM(COALESCE(slr.productconfigurationid, '')) <> ''
-      LEFT JOIN production_refs AS pref
-        ON pref.ref_dataareaid = slr.line_dataareaid
-       AND pref.ref_salesordernumber = slr.line_salesordernumber
-       AND pref.ref_itemnumber = BTRIM(COALESCE(slr.line_itemnumber, ''))
-       AND pref.ref_lotid = slr.line_inventorylotid
-       AND slr.line_inventorylotid <> ''
-      GROUP BY slr.audit_row_id
-    )
     SELECT
-      machine.salesordernumber, machine.dataareaid, machine.deliveryaddressname,
-      machine.confirmedshippingdate, machine.salesordername, machine.salesorderpoolid,
-      machine.requestedshippingdate,
-      machine.ordercreationdatetime, machine.engineeringnotes,
-      machine.itemdesc, machine.itemnumber, machine.orderedsalesquantity,
-      machine.deliverydate, machine.scheduledstartdate, machine.productionorderstatus,
-      machine.starteddate, machine.status, machine.productionordername,
-      machine.productionordernumber, machine.endeddate, machine.sc1, machine.sc2,
-      machine.sc3, machine.name,
-      machine."Resource1" AS resource1,
-      machine."Resource" AS resource,
-      machine."Task" AS task,
-      machine."Assy_Resource" AS assy_resource,
-      machine."MachineResource" AS machineresource,
-      linkage_audit.salesheadercustomername,
-      linkage_audit.salesheadermatched,
-      linkage_audit.saleslinematched,
-      linkage_audit.productiondemandmatched,
-      linkage_audit.inventorylotdemandid,
-      build_dates.buildstartdate,
-      build_dates.buildenddate,
-      production_group_names.productiongroupname,
-      sales_order_lines.lines AS salesorderlines
-    FROM machine
-    JOIN linkage_audit USING (audit_row_id)
-    LEFT JOIN build_dates USING (audit_row_id)
-    LEFT JOIN production_group_names
-      ON production_group_names.productiongroupid =
-           BTRIM(COALESCE(machine.productiongroupid, ''))
-     AND production_group_names.productiongroupdataareaid =
-           BTRIM(COALESCE(machine.dataareaid, ''))
-    LEFT JOIN sales_order_lines USING (audit_row_id)
+      salesordernumber, dataareaid, deliveryaddressname,
+      confirmedshippingdate, salesordername, salesorderpoolid,
+      requestedshippingdate, ordercreationdatetime, engineeringnotes,
+      itemdesc, itemnumber, orderedsalesquantity,
+      estimatedquantity, scheduledquantity, remainingreportasfinishedquantity,
+      deliverydate, scheduledstartdate, productionorderstatus,
+      starteddate, status, productionordername, productionordernumber,
+      endeddate, sc1, sc2, sc3, name,
+      resource1, resource, task, assy_resource, machineresource,
+      salesheadercustomername, salesheadermatched, saleslinematched,
+      productiondemandmatched, inventorylotdemandid,
+      buildstartdate, buildenddate, productiongroupname, salesorderlines
+    FROM ${cacheTableName}
   `);
 
-  const rows = result.rows.filter(isRequiredProductionPriorityRow);
+  const rows = result.rows;
   const activeRows = rows.filter((row) => {
     const workOrder = text(row.productionordernumber);
     return workOrder && normalizeStatus(row.status) !== "";
@@ -437,6 +222,8 @@ async function loadSnapshot(): Promise<PrioritySnapshot> {
     return {
       id: workOrder || `azure-order-${index + 1}`,
       workOrder,
+      workOrderQty: getWorkOrderQuantity(row).remaining,
+      scheduledWorkOrderQty: getWorkOrderQuantity(row).scheduled,
       salesOrder: text(row.salesordernumber),
       customer: getSalesOrderCustomerName(row),
       customerPO: "",

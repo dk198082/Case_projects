@@ -13,6 +13,10 @@ import type { SalesOrderLinkageAudit } from './salesOrderLinkageAudit';
 export interface ProductionOrder {
   id: string;
   workOrder: string;
+  /** Remaining quantity to report as finished for the Work Order, falling back to scheduled quantity when unavailable. */
+  workOrderQty: number;
+  /** Scheduled production quantity for the Work Order, falling back to estimated quantity when scheduled quantity is unavailable. */
+  scheduledWorkOrderQty: number;
   salesOrder: string;
   customer: string;
   customerPO: string;

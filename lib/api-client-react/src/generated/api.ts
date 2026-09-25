@@ -384,7 +384,7 @@ export const getLogoutUrl = () => {
 
 
 
-  return `/api/auth/logout`
+  return `/api/logout`
 }
 
 /**

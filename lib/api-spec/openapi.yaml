@@ -153,6 +153,8 @@ components:
       required:
         - id
         - workOrder
+        - workOrderQty
+        - scheduledWorkOrderQty
         - salesOrder
         - customer
         - customerPO
@@ -183,6 +185,12 @@ components:
       properties:
         id: { type: string }
         workOrder: { type: string }
+        workOrderQty:
+          type: number
+          description: Remaining quantity to report as finished for the Work Order, falling back to scheduled quantity when unavailable.
+        scheduledWorkOrderQty:
+          type: number
+          description: Scheduled production quantity for the Work Order, falling back to estimated quantity when scheduled quantity is unavailable.
         salesOrder: { type: string }
         customer: { type: string }
         customerPO: { type: string }

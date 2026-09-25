@@ -67,6 +67,8 @@ export const GetProductionPriorityResponse = zod.object({
   "orders": zod.array(zod.object({
   "id": zod.string(),
   "workOrder": zod.string(),
+  "workOrderQty": zod.number().describe('Remaining quantity to report as finished for the Work Order, falling back to scheduled quantity when unavailable.'),
+  "scheduledWorkOrderQty": zod.number().describe('Scheduled production quantity for the Work Order, falling back to estimated quantity when scheduled quantity is unavailable.'),
   "salesOrder": zod.string(),
   "customer": zod.string(),
   "customerPO": zod.string(),
