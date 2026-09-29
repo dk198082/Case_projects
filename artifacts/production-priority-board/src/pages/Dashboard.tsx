@@ -136,6 +136,8 @@ function Kpi({
 
 export function Dashboard() {
   const { user } = useAuth();
+  const isEmbedded =
+    typeof window !== "undefined" && window.self !== window.top;
   const { snapshot, isLoading, error } = usePrioritySnapshot();
   const { selectedSC1, setSelectedSC1 } = useSessionSC1(snapshot.orders);
   const groups = useSC1Groups(snapshot.orders);
@@ -384,6 +386,7 @@ export function Dashboard() {
   const stats = useStats(scopedOrders);
   return (
     <div className="min-h-[100dvh] bg-background text-foreground">
+      {!isEmbedded && (
       <header className="border-b border-border/70 bg-card/55 px-4 py-3 backdrop-blur md:px-6">
         <div className="mx-auto flex max-w-[1800px] flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">
@@ -416,7 +419,7 @@ export function Dashboard() {
           </div>
         </div>
       </header>
-
+      )}
       <main className="mx-auto max-w-[1800px] px-4 py-4 md:px-6">
         {error && (
           <section
