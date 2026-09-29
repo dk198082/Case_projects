@@ -95,16 +95,16 @@ export const REQUIREMENTS_REVIEW: {
         {
           title: "Dynamic active-team selector",
           status: "fulfilled",
-          requirement: "Organize the board around SC3 and show active-order counts for available teams.",
-          functional: "Production users can select an SC3 team and immediately see its active-order count and queue.",
-          technical: "The client derives the selector and counts from the API’s current non-complete orders. The server applies the approved SC3 allow-list before returning data.",
+          requirement: "Organize the board around SC3 and show remaining Work Order quantities for available teams.",
+          functional: "Production users can select an SC3 team and immediately see its total quantity remaining to report as finished and its queue.",
+          technical: "The client sums workOrderQty, sourced from remainingreportasfinishedquantity, for each selector value. The grid displays remaining / scheduled quantity.",
         },
         {
           title: "Default team and session memory",
           status: "fulfilled",
-          requirement: "Open on the team with the largest active workload and remember the user’s selection during the browser session.",
-          functional: "The busiest available SC3 is selected initially; returning users keep their team while the session remains active.",
-          technical: "useSessionSC3 ranks active team counts and stores the selected value in sessionStorage.",
+          requirement: "Open on all SC3 teams and remember the user’s selection during the browser session.",
+          functional: "A new session opens on All; returning users keep their team selection while the session remains active.",
+          technical: "useSessionSC3 uses an empty selection for All and stores subsequent selections in sessionStorage.",
         },
         {
           title: "Required source filters",

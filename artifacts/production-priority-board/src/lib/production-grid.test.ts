@@ -13,6 +13,8 @@ const order = (
   ({
     id,
     workOrder: "",
+    workOrderQty: 0,
+    scheduledWorkOrderQty: 0,
     salesOrder: "",
     customer: "",
     customerPO: "",
@@ -55,6 +57,8 @@ const order = (
 const orders = [
   order("1", {
     workOrder: "WO-10",
+    workOrderQty: 12,
+    scheduledWorkOrderQty: 15,
     salesOrder: "SO-10",
     itemNumber: "PART-B",
     customer: "Beta",
@@ -63,6 +67,8 @@ const orders = [
   }),
   order("2", {
     workOrder: "WO-2",
+    workOrderQty: 3,
+    scheduledWorkOrderQty: 8,
     salesOrder: "SO-2",
     itemNumber: "PART-A",
     customer: "Acme",
@@ -117,6 +123,26 @@ describe("applyProductionGridView", () => {
         { key: "buildEndDate", direction: "desc" },
       ).map((item) => item.id),
     ).toEqual(["1", "2"]);
+  });
+
+  it("filters and sorts Work Order quantities numerically", () => {
+    expect(
+      applyProductionGridView(
+        orders,
+        priorities,
+        { ...EMPTY_GRID_FILTERS, workOrderQty: "12" },
+        { key: "workOrderQty", direction: "asc" },
+      ).map((item) => item.id),
+    ).toEqual(["1"]);
+
+    expect(
+      applyProductionGridView(
+        orders,
+        priorities,
+        EMPTY_GRID_FILTERS,
+        { key: "workOrderQty", direction: "asc" },
+      ).map((item) => item.workOrderQty),
+    ).toEqual([3, 12]);
   });
 
   it("filters date columns with inclusive from and to bounds", () => {

@@ -23,6 +23,8 @@ export type ProductionStatus = "STARTED" | "RELEASED" | string;
 export type ProductionOrder = {
   id: string;
   workOrder: string;
+  workOrderQty: number;
+  scheduledWorkOrderQty: number;
   salesOrder: string;
   customer: string;
   customerPO: string;
@@ -225,6 +227,8 @@ export const MOCK_ORDERS: ProductionOrder[] = machineRows.map((row, index) => {
   const base: ProductionOrder = {
     id: workOrder || `unlinked-${index + 1}`,
     workOrder,
+    workOrderQty: 0,
+    scheduledWorkOrderQty: 0,
     salesOrder,
     customer: related ? text(related.Name) : "—",
     customerPO: related ? text(related["Ref #"]) : "",

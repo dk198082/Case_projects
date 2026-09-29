@@ -20,6 +20,12 @@ export async function exportProductionGridToExcel(
   worksheet.columns = [
     { header: "Priority", key: "priority", width: 10 },
     { header: "Work Order", key: "workOrder", width: 18 },
+    { header: "Remaining WO Qty", key: "workOrderQty", width: 18 },
+    {
+      header: "Scheduled WO Qty",
+      key: "scheduledWorkOrderQty",
+      width: 18,
+    },
     { header: "Part Number", key: "itemNumber", width: 20 },
     { header: "Description", key: "description", width: 42 },
     { header: "Customer", key: "customer", width: 32 },
@@ -41,6 +47,8 @@ export async function exportProductionGridToExcel(
     worksheet.addRow({
       priority: priorityById.get(order.id) ?? "",
       workOrder: order.workOrder,
+      workOrderQty: order.workOrderQty,
+      scheduledWorkOrderQty: order.scheduledWorkOrderQty,
       itemNumber: order.itemNumber,
       description: order.description,
       customer: order.customer,
@@ -58,7 +66,7 @@ export async function exportProductionGridToExcel(
   worksheet.views = [{ state: "frozen", ySplit: 1 }];
   worksheet.autoFilter = {
     from: "A1",
-    to: "M1",
+    to: "O1",
   };
   worksheet.getRow(1).font = { bold: true, color: { argb: "FF00281D" } };
   worksheet.getRow(1).fill = {

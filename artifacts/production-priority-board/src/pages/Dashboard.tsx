@@ -1,6 +1,7 @@
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import {
   type BoardFilter,
+  sumWorkOrderQuantity,
   toggleClassificationSelection,
   usePrioritySnapshot,
   useProductionData,
@@ -28,6 +29,11 @@ import { exportProductionGridToExcel } from "@/lib/export-production-grid";
 import { OrderDetailsDialog } from "@/components/OrderDetailsDialog";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import {
   Table,
   TableBody,
@@ -65,6 +71,20 @@ const kpiTone = (tone: "default" | "good" | "warning" | "danger") =>
     warning: "text-amber-200",
     danger: "text-red-300",
   })[tone];
+
+const formatQuantity = (value: number) =>
+  new Intl.NumberFormat("en-US", {
+    maximumFractionDigits: 2,
+  }).format(value);
+
+function WorkOrderQuantityTooltip({ children }: { children: ReactNode }) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="top">Remaining/Planned</TooltipContent>
+    </Tooltip>
+  );
+}
 
 function Kpi({
   label,
@@ -108,7 +128,7 @@ function Kpi({
         "mt-1 font-mono text-xl font-bold leading-none tabular-nums",
         selected ? "text-[#00281D]" : kpiTone(tone),
       )}>
-        {value}
+        {formatQuantity(value)}
       </p>
     </button>
   );
@@ -116,12 +136,11 @@ function Kpi({
 
 export function Dashboard() {
   const { user } = useAuth();
-  const isEmbedded =
-    typeof window !== "undefined" && window.self !== window.top;
   const { snapshot, isLoading, error } = usePrioritySnapshot();
   const { selectedSC1, setSelectedSC1 } = useSessionSC1(snapshot.orders);
   const groups = useSC1Groups(snapshot.orders);
   const groupCounts = useSC1Counts(snapshot.orders);
+  const allGroupsQuantity = sumWorkOrderQuantity(snapshot.orders);
   const groupScopedOrders = useMemo(
     () => {
       if (!selectedSC1.length) return snapshot.orders;
@@ -136,6 +155,7 @@ export function Dashboard() {
     useSessionSC3(groupScopedOrders);
   const teams = useSC3TeamsForGroup(snapshot.orders, selectedSC1);
   const teamCounts = useSC3Counts(groupScopedOrders);
+  const allTeamsQuantity = sumWorkOrderQuantity(groupScopedOrders);
   const [filter, setFilter] = useState<BoardFilter>("All Active");
   const [search, setSearch] = useState("");
   const [selectedOrder, setSelectedOrder] = useState<ProductionOrder | null>(null);
@@ -195,6 +215,8 @@ export function Dashboard() {
       ),
     [baseOrders, columnFilters, dateFilters, gridSort, priorityById],
   );
+  const visibleQuantity = sumWorkOrderQuantity(orders);
+  const baseQuantity = sumWorkOrderQuantity(baseOrders);
   const hasColumnFilters =
     Object.values(columnFilters).some((value) => value.trim()) ||
     Object.values(dateFilters).some(({ from, to }) => from || to);
@@ -267,7 +289,13 @@ export function Dashboard() {
           aria-label={`Filter by ${label}`}
           aria-expanded={activeFilterColumn === column}
         >
-          <span>{label}</span>
+          {column === "workOrderQty" ? (
+            <WorkOrderQuantityTooltip>
+              <span>{label}</span>
+            </WorkOrderQuantityTooltip>
+          ) : (
+            <span>{label}</span>
+          )}
           {columnFilters[column].trim() ||
           (column in dateFilters &&
             (dateFilters[column as GridDateColumnKey].from ||
@@ -353,13 +381,10 @@ export function Dashboard() {
       )}
     </TableHead>
   );
-
   const stats = useStats(scopedOrders);
   return (
     <div className="min-h-[100dvh] bg-background text-foreground">
-      
-      {!isEmbedded && (
-        <header className="border-b border-border/70 bg-card/55 px-4 py-3 backdrop-blur md:px-6">
+      <header className="border-b border-border/70 bg-card/55 px-4 py-3 backdrop-blur md:px-6">
         <div className="mx-auto flex max-w-[1800px] flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
@@ -379,7 +404,7 @@ export function Dashboard() {
                 {user?.role === "editor" ? "Read / write" : "Read only"}
               </p>
             </div>
-            <form action="/api/auth/logout" method="post">
+            <form action="/api/logout" method="post">
               <button
                 type="submit"
                 className="inline-flex items-center gap-2 rounded-sm border border-border px-3 py-2 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground transition-colors hover:border-primary/50 hover:text-primary"
@@ -390,8 +415,8 @@ export function Dashboard() {
             </form>
           </div>
         </div>
-       </header>
-     )}
+      </header>
+
       <main className="mx-auto max-w-[1800px] px-4 py-4 md:px-6">
         {error && (
           <section
@@ -430,7 +455,7 @@ export function Dashboard() {
                   : "border-border bg-card/45 text-muted-foreground hover:border-primary/45 hover:text-primary",
               )}
             >
-              All groups <span className="ml-1 opacity-70">{snapshot.orders.length}</span>
+              All groups <span className="ml-1 opacity-70">{formatQuantity(allGroupsQuantity)}</span>
             </button>
             {groups.map((group) => (
               <button
@@ -451,7 +476,7 @@ export function Dashboard() {
                     : "border-border bg-card/45 text-muted-foreground hover:border-primary/45 hover:text-primary",
                 )}
               >
-                {group} <span className="ml-1 opacity-70">{groupCounts.get(group) ?? 0}</span>
+                {group} <span className="ml-1 opacity-70">{formatQuantity(groupCounts.get(group) ?? 0)}</span>
               </button>
             ))}
           </div>
@@ -476,7 +501,7 @@ export function Dashboard() {
                   : "border-border bg-card/45 text-muted-foreground hover:border-primary/45 hover:text-primary",
               )}
             >
-              All <span className="ml-1 opacity-70">{groupScopedOrders.length}</span>
+              All <span className="ml-1 opacity-70">{formatQuantity(allTeamsQuantity)}</span>
             </button>
             {teams.map((team) => (
               <button
@@ -497,7 +522,7 @@ export function Dashboard() {
                     : "border-border bg-card/45 text-muted-foreground hover:border-primary/45 hover:text-primary",
                 )}
               >
-                {team} <span className="ml-1 opacity-70">{teamCounts.get(team) ?? 0}</span>
+                {team} <span className="ml-1 opacity-70">{formatQuantity(teamCounts.get(team) ?? 0)}</span>
               </button>
             ))}
           </div>
@@ -541,7 +566,7 @@ export function Dashboard() {
               data-testid="text-grid-row-count"
               className="shrink-0 whitespace-nowrap font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground"
             >
-              {orders.length} of {baseOrders.length} work orders
+              {formatQuantity(visibleQuantity)} of {formatQuantity(baseQuantity)} units remaining
             </p>
             <div className="relative w-[210px] shrink-0">
               <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
@@ -582,11 +607,12 @@ export function Dashboard() {
         <section className="grid gap-4">
           <div className="min-w-0 overflow-hidden rounded-sm border border-border/70 bg-card/30">
             <div className="overflow-auto">
-              <Table className="min-w-[1290px]">
+              <Table className="min-w-[1370px]">
                 <TableHeader className="sticky top-0 z-10 bg-[#07392b]">
                   <TableRow className="border-border/80 hover:bg-transparent">
                     {sortableHead("priority", "Priority", "w-[74px]")}
                     {sortableHead("workOrder", "Work order", "w-[120px]")}
+                    {sortableHead("workOrderQty", "WO qty", "w-[90px]", "Quantity")}
                     {sortableHead("part", "Part number / Description", "w-[190px]", "Part or description")}
                     {sortableHead("salesOrder", "Sales order", "w-[120px]")}
                     {sortableHead("customer", "Customer", "min-w-[230px]", "Customer or reference")}
@@ -600,7 +626,7 @@ export function Dashboard() {
                 <TableBody>
                   {orders.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={10} className="h-40 text-center font-mono text-xs text-muted-foreground">
+                      <TableCell colSpan={11} className="h-40 text-center font-mono text-xs text-muted-foreground">
                         No active work orders match the current view.
                       </TableCell>
                     </TableRow>
@@ -622,6 +648,15 @@ export function Dashboard() {
                           </TableCell>
                           <TableCell className="py-2">
                             <p className="font-mono text-sm font-bold text-foreground">{order.workOrder || "—"}</p>
+                          </TableCell>
+                          <TableCell className="py-2">
+                            <p className="whitespace-nowrap font-mono text-sm font-semibold tabular-nums text-foreground">
+                              {formatQuantity(order.workOrderQty)}
+                              <span className="font-normal text-muted-foreground/70">
+                                {" / "}
+                                {formatQuantity(order.scheduledWorkOrderQty)}
+                              </span>
+                            </p>
                           </TableCell>
                           <TableCell className="py-2">
                             <p className="max-w-[190px] truncate font-mono text-xs font-semibold text-foreground">{order.itemNumber || "—"}</p>

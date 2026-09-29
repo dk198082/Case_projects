@@ -4,6 +4,7 @@ import { formatCalendarDate } from "@/lib/date-utils";
 export type GridColumnKey =
   | "priority"
   | "workOrder"
+  | "workOrderQty"
   | "part"
   | "salesOrder"
   | "customer"
@@ -33,6 +34,7 @@ export type GridDateFilters = Record<
 export const EMPTY_GRID_FILTERS: GridColumnFilters = {
   priority: "",
   workOrder: "",
+  workOrderQty: "",
   part: "",
   salesOrder: "",
   customer: "",
@@ -62,6 +64,8 @@ const columnText = (
       return String(priorityById.get(order.id) ?? "");
     case "workOrder":
       return order.workOrder;
+    case "workOrderQty":
+      return `${order.workOrderQty} / ${order.scheduledWorkOrderQty}`;
     case "part":
       return `${order.itemNumber} ${order.description}`;
     case "salesOrder":
@@ -127,6 +131,13 @@ export function applyProductionGridView(
         ((priorityById.get(left.id) ?? Number.MAX_SAFE_INTEGER) -
           (priorityById.get(right.id) ?? Number.MAX_SAFE_INTEGER)) *
         direction
+      );
+    }
+    if (sort.key === "workOrderQty") {
+      return (
+        (left.workOrderQty - right.workOrderQty) * direction ||
+        (priorityById.get(left.id) ?? 0) -
+          (priorityById.get(right.id) ?? 0)
       );
     }
 

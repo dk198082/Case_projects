@@ -58,7 +58,7 @@ export const DATAFLOW_DOCUMENT = {
         "salesordernumber, dataareaid, salesorderpoolid",
         "deliveryaddressname, confirmedshippingdate, requestedshippingdate",
         "ordercreationdatetime, engineeringnotes",
-        "itemdesc, itemnumber, orderedsalesquantity",
+        "itemdesc, itemnumber, orderedsalesquantity, scheduledquantity, estimatedquantity, remainingreportasfinishedquantity",
         "deliverydate, scheduledstartdate, productionorderstatus, starteddate, status",
         "productionordername, productionordernumber, endeddate",
         "sc1, sc2, sc3, name",
@@ -293,16 +293,16 @@ export const DATAFLOW_DOCUMENT = {
       summary: "The browser does not query the database. It transforms the validated API snapshot into the selected team’s queue and presentation state.",
       items: [
         {
-          name: "Team list, counts, and default",
+          name: "Team list, quantity totals, and default",
           stage: "transform",
-          formula: "teams = unique non-empty order.SC3 values sorted alphabetically; team count = non-complete orders per SC3; default team = highest count, then alphabetical tie-breaker; selected team persists in sessionStorage.",
+          formula: "teams = unique non-empty order.SC3 values sorted alphabetically; team total = sum of remainingreportasfinishedquantity (API workOrderQty) per SC3; a new session defaults to All; subsequent team selections persist in sessionStorage.",
           result: "SC3 controls the queue, KPIs, exceptions, and demand view without changing the server snapshot.",
           source: "use-production-data.ts → useSC3Teams(), useSC3Counts(), useSessionSC3()",
         },
         {
           name: "Group filter (SC1 over SC3)",
           stage: "transform",
-          formula: "groups = unique non-empty order.SC1 values sorted alphabetically, with per-group counts of non-complete orders; selecting a group narrows the SC3 team row to teams whose orders share that SC1, resets the team selection to All, and persists the chosen group in sessionStorage (key sc1-group). Selecting All groups restores the full team list.",
+          formula: "groups = unique non-empty order.SC1 values sorted alphabetically, with each group showing the sum of remainingreportasfinishedquantity (API workOrderQty); selecting a group narrows the SC3 team row to teams whose orders share that SC1, resets the team selection to All, and persists the chosen group in sessionStorage (key sc1-group). Selecting All groups restores the full team list.",
           result: "Supervisors can filter to a whole family of SC3 teams (e.g. all SL-Series lines) at once instead of picking one team at a time, without changing the server snapshot.",
           source: "use-production-data.ts → useSC1Groups(), useSC1Counts(), useSessionSC1(), useSC3TeamsForGroup()",
         },
@@ -330,7 +330,7 @@ export const DATAFLOW_DOCUMENT = {
         {
           name: "KPI calculations",
           stage: "output",
-          formula: "Active work orders = total orders in the current group/team/search scope; Started/Released = scoped orders with that status; Build date past due = scoped orders whose buildEndDate is before today. Clicking a KPI applies its All Active, Started, Released, or Past Due filter to the queue.",
+          formula: "All = sum of remaining report-as-finished quantity in the current group/team/search scope; Started/Released = the same remaining-quantity sum for scoped orders with that status; Build date past due = the same remaining-quantity sum for scoped orders whose buildEndDate is before today. Clicking a KPI applies its All Active, Started, Released, or Past Due filter to the queue.",
           result: "The KPI strip provides both category totals and the queue filter controls, while the selected card indicates the active grid view.",
           source: "use-production-data.ts → useStats()",
         },

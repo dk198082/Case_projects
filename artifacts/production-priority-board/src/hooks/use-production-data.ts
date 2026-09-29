@@ -24,9 +24,12 @@ export type SortKey =
   | "customer";
 
 export type PrioritySnapshot = ProductionPriorityResponse;
-type TeamOrder = Pick<ProductionOrder, "SC3" | "status">;
-type GroupedTeamOrder = Pick<ProductionOrder, "SC1" | "SC3" | "status">;
-type GroupOrder = Pick<ProductionOrder, "SC1" | "status">;
+type TeamOrder = Pick<ProductionOrder, "SC3" | "status" | "workOrderQty">;
+type GroupedTeamOrder = Pick<
+  ProductionOrder,
+  "SC1" | "SC3" | "status" | "workOrderQty"
+>;
+type GroupOrder = Pick<ProductionOrder, "SC1" | "status" | "workOrderQty">;
 
 const emptyDataQuality: DataQuality = {
   machineRows: 0,
@@ -51,6 +54,7 @@ const emptySnapshot: PrioritySnapshot = {
 };
 
 const queryKey = ["production-priority"] as const;
+const sc3StorageKey = "sc3-team-all-default";
 
 const byDateThenWorkOrder = (
   left: ProductionOrder,
@@ -109,19 +113,6 @@ export function usePrioritySnapshot() {
   };
 }
 
-const getDefaultSC3 = (orders: TeamOrder[]) => {
-  const counts = new Map<string, number>();
-  for (const order of orders) {
-    if (!order.SC3) continue;
-    counts.set(order.SC3, (counts.get(order.SC3) ?? 0) + 1);
-  }
-
-  return [...counts.entries()].sort(
-    ([teamA, countA], [teamB, countB]) =>
-      countB - countA || teamA.localeCompare(teamB),
-  )[0]?.[0] ?? "";
-};
-
 const readStoredSelections = (
   value: string | null,
   availableValues: ReadonlySet<string>,
@@ -142,6 +133,16 @@ const readStoredSelections = (
   }
 
   return availableValues.has(value) ? [value] : null;
+};
+
+export const resolveSessionSC3Selection = (
+  storedValue: string | null,
+  orders: TeamOrder[],
+) => {
+  const availableTeams = new Set(
+    orders.map((order) => order.SC3).filter(Boolean),
+  );
+  return readStoredSelections(storedValue, availableTeams) ?? [];
 };
 
 export const toggleClassificationSelection = (
@@ -172,12 +173,12 @@ export function useSessionSC3(orders: TeamOrder[]) {
 
     const availableTeams = new Set(orders.map((order) => order.SC3).filter(Boolean));
     if (!hasInitialized) {
-      const storedTeams = readStoredSelections(
-        sessionStorage.getItem("sc3-team"),
-        availableTeams,
+      setSelectedSC3(
+        resolveSessionSC3Selection(
+          sessionStorage.getItem(sc3StorageKey),
+          orders,
+        ),
       );
-      const defaultTeam = getDefaultSC3(orders);
-      setSelectedSC3(storedTeams ?? (defaultTeam ? [defaultTeam] : []));
       setHasInitialized(true);
       return;
     }
@@ -191,7 +192,7 @@ export function useSessionSC3(orders: TeamOrder[]) {
 
   useEffect(() => {
     if (hasInitialized) {
-      sessionStorage.setItem("sc3-team", JSON.stringify(selectedSC3));
+      sessionStorage.setItem(sc3StorageKey, JSON.stringify(selectedSC3));
     }
   }, [hasInitialized, selectedSC3]);
 
@@ -210,7 +211,10 @@ export function useSC3Counts(orders: TeamOrder[]) {
     const counts = new Map<string, number>();
     for (const order of orders) {
       if (!order.SC3) continue;
-      counts.set(order.SC3, (counts.get(order.SC3) ?? 0) + 1);
+      counts.set(
+        order.SC3,
+        (counts.get(order.SC3) ?? 0) + workOrderQuantity(order),
+      );
     }
     return counts;
   }, [orders]);
@@ -275,7 +279,10 @@ export function useSC1Counts(orders: GroupOrder[]) {
     const counts = new Map<string, number>();
     for (const order of orders) {
       if (!order.SC1) continue;
-      counts.set(order.SC1, (counts.get(order.SC1) ?? 0) + 1);
+      counts.set(
+        order.SC1,
+        (counts.get(order.SC1) ?? 0) + workOrderQuantity(order),
+      );
     }
     return counts;
   }, [orders]);
@@ -343,16 +350,35 @@ export function useProductionData(
   }, [data, filter, sc1, sc3, search, sortBy]);
 }
 
+const workOrderQuantity = (order: Pick<ProductionOrder, "workOrderQty">) =>
+  Number.isFinite(order.workOrderQty) ? order.workOrderQty : 0;
+
+export const sumWorkOrderQuantity = (
+  orders: ReadonlyArray<Pick<ProductionOrder, "workOrderQty">>,
+) => orders.reduce((total, order) => total + workOrderQuantity(order), 0);
+
+type QuantityStatsOrder = Pick<
+  ProductionOrder,
+  "workOrderQty" | "status" | "buildEndDate"
+>;
+
+export const calculateWorkOrderQuantityStats = (
+  orders: QuantityStatsOrder[],
+) => ({
+  totalActive: sumWorkOrderQuantity(orders),
+  started: sumWorkOrderQuantity(
+    orders.filter((order) => order.status === "STARTED"),
+  ),
+  released: sumWorkOrderQuantity(
+    orders.filter((order) => order.status === "RELEASED"),
+  ),
+  buildPastDue: sumWorkOrderQuantity(
+    orders.filter((order) => isCalendarDatePastDue(order.buildEndDate)),
+  ),
+});
+
 export function useStats(orders: ProductionOrder[]) {
-  return useMemo(
-    () => ({
-      totalActive: orders.length,
-      started: orders.filter((order) => order.status === "STARTED").length,
-      released: orders.filter((order) => order.status === "RELEASED").length,
-      buildPastDue: orders.filter((order) => isCalendarDatePastDue(order.buildEndDate)).length,
-    }),
-    [orders],
-  );
+  return useMemo(() => calculateWorkOrderQuantityStats(orders), [orders]);
 }
 
 export function useDataQuality(snapshot: PrioritySnapshot) {
