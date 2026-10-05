@@ -8,13 +8,15 @@ import type {
   DataQuality,
   ProductionOrder,
 } from "../lib/mock-data";
-import { isCalendarDatePastDue } from "../lib/date-utils";
+import { isCalendarDatePastDue, isShipDateWithinWeeks } from "../lib/date-utils";
 
 export type BoardFilter =
   | "All Active"
   | "Started"
   | "Released"
-  | "Past Due";
+  | "Build Date Past Due"
+  | "Ship Date Past Due"
+  | "Ship Date Within X Weeks";
 
 export type SortKey =
   | "priority"
@@ -164,6 +166,23 @@ export const matchesClassificationSelections = (
   (!selectedSC1.length || selectedSC1.includes(order.SC1)) &&
   (!selectedSC3.length || selectedSC3.includes(order.SC3));
 
+export const matchesBoardFilter = (
+  order: Pick<ProductionOrder, "status" | "buildEndDate" | "salesShipDate">,
+  filter: BoardFilter,
+  shipWeeks = 2,
+) => {
+  if (filter === "Build Date Past Due") {
+    return isCalendarDatePastDue(order.buildEndDate);
+  }
+  if (filter === "Ship Date Past Due") {
+    return isCalendarDatePastDue(order.salesShipDate);
+  }
+  if (filter === "Ship Date Within X Weeks") {
+    return isShipDateWithinWeeks(order.salesShipDate, shipWeeks);
+  }
+  return filter === "All Active" || order.status === filter.toUpperCase();
+};
+
 export function useSessionSC3(orders: TeamOrder[]) {
   const [selectedSC3, setSelectedSC3] = useState<string[]>([]);
   const [hasInitialized, setHasInitialized] = useState(false);
@@ -305,10 +324,10 @@ export function useSC3TeamsForGroup(
 export function useProductionData(
   allOrders: ProductionPriorityResponse["orders"],
   sc3: string[],
-  search: string,
   sortBy: SortKey = "priority",
   filter: BoardFilter = "All Active",
   sc1: string[] = [],
+  shipWeeks = 2,
 ) {
   const data = useMemo(() => allOrders.map(toProductionOrder), [allOrders]);
 
@@ -321,25 +340,8 @@ export function useProductionData(
       );
     }
 
-    const normalizedSearch = search.trim().toLowerCase();
-    if (normalizedSearch) {
-      result = result.filter((order) =>
-        [
-          order.workOrder,
-          order.salesOrder,
-          order.customer,
-        ].some((value) => value.toLowerCase().includes(normalizedSearch)),
-      );
-    }
-
-    if (filter === "Past Due") {
-      result = result.filter(
-        (order) =>
-          isCalendarDatePastDue(order.buildEndDate) ||
-          isCalendarDatePastDue(order.salesShipDate),
-      );
-    } else if (filter !== "All Active") {
-      result = result.filter((order) => order.status === filter.toUpperCase());
+    if (filter !== "All Active") {
+      result = result.filter((order) => matchesBoardFilter(order, filter, shipWeeks));
     }
 
     return [...result].sort((left, right) => {
@@ -347,7 +349,7 @@ export function useProductionData(
       if (sortBy === "customer") return left.customer.localeCompare(right.customer);
       return byDateThenWorkOrder(left, right, sortBy === "salesShipDate" ? "salesShipDate" : "buildEndDate");
     });
-  }, [data, filter, sc1, sc3, search, sortBy]);
+  }, [data, filter, sc1, sc3, shipWeeks, sortBy]);
 }
 
 const workOrderQuantity = (order: Pick<ProductionOrder, "workOrderQty">) =>
@@ -359,11 +361,12 @@ export const sumWorkOrderQuantity = (
 
 type QuantityStatsOrder = Pick<
   ProductionOrder,
-  "workOrderQty" | "status" | "buildEndDate"
+  "workOrderQty" | "status" | "buildEndDate" | "salesShipDate"
 >;
 
 export const calculateWorkOrderQuantityStats = (
   orders: QuantityStatsOrder[],
+  shipWeeks = 2,
 ) => ({
   totalActive: sumWorkOrderQuantity(orders),
   started: sumWorkOrderQuantity(
@@ -375,10 +378,16 @@ export const calculateWorkOrderQuantityStats = (
   buildPastDue: sumWorkOrderQuantity(
     orders.filter((order) => isCalendarDatePastDue(order.buildEndDate)),
   ),
+  shipPastDue: sumWorkOrderQuantity(
+    orders.filter((order) => isCalendarDatePastDue(order.salesShipDate)),
+  ),
+  shipWithinWeeks: sumWorkOrderQuantity(
+    orders.filter((order) => isShipDateWithinWeeks(order.salesShipDate, shipWeeks)),
+  ),
 });
 
-export function useStats(orders: ProductionOrder[]) {
-  return useMemo(() => calculateWorkOrderQuantityStats(orders), [orders]);
+export function useStats(orders: ProductionOrder[], shipWeeks = 2) {
+  return useMemo(() => calculateWorkOrderQuantityStats(orders, shipWeeks), [orders, shipWeeks]);
 }
 
 export function useDataQuality(snapshot: PrioritySnapshot) {

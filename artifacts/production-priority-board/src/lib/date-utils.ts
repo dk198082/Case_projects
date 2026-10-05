@@ -23,3 +23,18 @@ export const isCalendarDatePastDue = (value: string | null | undefined) => {
   const todayValue = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
   return dateValue < todayValue;
 };
+
+export const isShipDateWithinWeeks = (
+  value: string | null | undefined,
+  weeks: number,
+  today = new Date(),
+) => {
+  if (!value || !Number.isSafeInteger(weeks) || weeks < 1) return false;
+
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+
+  const shipDay = Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  const todayDay = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
+  return shipDay <= todayDay + weeks * 7 * 24 * 60 * 60 * 1000;
+};

@@ -1,11 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import {
   calculateWorkOrderQuantityStats,
+  matchesBoardFilter,
   matchesClassificationSelections,
   resolveSessionSC3Selection,
   sumWorkOrderQuantity,
   toggleClassificationSelection,
 } from "@/hooks/use-production-data";
+import { isShipDateWithinWeeks } from "@/lib/date-utils";
 
 describe("classification multi-selection", () => {
   const orders = [
@@ -59,12 +61,14 @@ describe("classification multi-selection", () => {
       {
         status: "STARTED",
         workOrderQty: 2,
-        buildEndDate: "2999-01-01",
+        buildEndDate: "2000-01-01",
+        salesShipDate: "2999-01-01",
       },
       {
         status: "RELEASED",
         workOrderQty: 7,
         buildEndDate: "2999-01-01",
+        salesShipDate: "2000-01-01",
       },
     ]);
 
@@ -72,6 +76,70 @@ describe("classification multi-selection", () => {
       totalActive: 9,
       started: 2,
       released: 7,
+      buildPastDue: 2,
+      shipPastDue: 7,
     });
+  });
+
+  it("filters build and ship dates independently, excluding today and missing dates", () => {
+    const now = new Date();
+    const today = [
+      now.getFullYear(),
+      String(now.getMonth() + 1).padStart(2, "0"),
+      String(now.getDate()).padStart(2, "0"),
+    ].join("-");
+    const buildOnly = { status: "STARTED" as const, buildEndDate: "2000-01-01", salesShipDate: "2999-01-01" };
+    const shipOnly = { status: "RELEASED" as const, buildEndDate: "2999-01-01", salesShipDate: "2000-01-01" };
+    const both = { status: "STARTED" as const, buildEndDate: "2000-01-01", salesShipDate: "2000-01-01" };
+    const neither = { status: "RELEASED" as const, buildEndDate: today, salesShipDate: "" };
+
+    expect(matchesBoardFilter(buildOnly, "Build Date Past Due")).toBe(true);
+    expect(matchesBoardFilter(buildOnly, "Ship Date Past Due")).toBe(false);
+    expect(matchesBoardFilter(shipOnly, "Build Date Past Due")).toBe(false);
+    expect(matchesBoardFilter(shipOnly, "Ship Date Past Due")).toBe(true);
+    expect(matchesBoardFilter(both, "Build Date Past Due")).toBe(true);
+    expect(matchesBoardFilter(both, "Ship Date Past Due")).toBe(true);
+    expect(matchesBoardFilter(neither, "Build Date Past Due")).toBe(false);
+    expect(matchesBoardFilter(neither, "Ship Date Past Due")).toBe(false);
+    expect(matchesBoardFilter(shipOnly, "Released")).toBe(true);
+  });
+
+  it("counts and filters ship dates on or before the selected weeks cutoff, including past-due dates", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date(2026, 8, 30, 12));
+      const order = (salesShipDate: string, workOrderQty = 1) => ({
+        status: "STARTED" as const,
+        buildEndDate: "2999-01-01",
+        salesShipDate,
+        workOrderQty,
+      });
+      const today = order("2026-09-30", 2);
+      const lastDay = order("2026-10-14", 3);
+      const nextDay = order("2026-10-15", 5);
+      const yesterday = order("2026-09-29", 7);
+      const longPastDue = order("2000-01-01", 17);
+      const missing = order("", 11);
+      const invalid = order("not-a-date", 13);
+
+      expect(isShipDateWithinWeeks(today.salesShipDate, 2)).toBe(true);
+      expect(isShipDateWithinWeeks(lastDay.salesShipDate, 2)).toBe(true);
+      expect(isShipDateWithinWeeks(nextDay.salesShipDate, 2)).toBe(false);
+      expect(isShipDateWithinWeeks(yesterday.salesShipDate, 2)).toBe(true);
+      expect(isShipDateWithinWeeks(longPastDue.salesShipDate, 2)).toBe(true);
+      expect(isShipDateWithinWeeks(missing.salesShipDate, 2)).toBe(false);
+      expect(isShipDateWithinWeeks(invalid.salesShipDate, 2)).toBe(false);
+      expect(isShipDateWithinWeeks(lastDay.salesShipDate, 0)).toBe(false);
+      expect(isShipDateWithinWeeks(lastDay.salesShipDate, 1.5)).toBe(false);
+      expect(matchesBoardFilter(lastDay, "Ship Date Within X Weeks", 1)).toBe(false);
+      expect(matchesBoardFilter(lastDay, "Ship Date Within X Weeks", 2)).toBe(true);
+      expect(matchesBoardFilter(longPastDue, "Ship Date Within X Weeks", 2)).toBe(true);
+      expect(calculateWorkOrderQuantityStats(
+        [today, lastDay, nextDay, yesterday, longPastDue, missing, invalid],
+        2,
+      ).shipWithinWeeks).toBe(29);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

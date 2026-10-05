@@ -26,6 +26,8 @@ import {
   type GridSort,
 } from "@/lib/production-grid";
 import { exportProductionGridToExcel } from "@/lib/export-production-grid";
+import { ProductionGantt } from "@/components/ProductionGantt";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { OrderDetailsDialog } from "@/components/OrderDetailsDialog";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -52,7 +54,6 @@ import {
   Filter,
   PauseCircle,
   LogOut,
-  Search,
   X,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -106,7 +107,7 @@ function Kpi({
       type="button"
       data-testid={`kpi-filter-${filter.toLowerCase().replace(/ /g, "-")}`}
       aria-pressed={selected}
-      aria-label={`${filter} filter`}
+      aria-label={`${filter === "Ship Date Within X Weeks" ? label : filter} filter`}
       onClick={() => onSelect(filter)}
       className={cn(
         "min-w-[128px] cursor-pointer rounded-sm border px-3 py-2 text-left transition-all duration-150",
@@ -136,8 +137,6 @@ function Kpi({
 
 export function Dashboard() {
   const { user } = useAuth();
-  const isEmbedded =
-    typeof window !== "undefined" && window.self !== window.top;
   const { snapshot, isLoading, error } = usePrioritySnapshot();
   const { selectedSC1, setSelectedSC1 } = useSessionSC1(snapshot.orders);
   const groups = useSC1Groups(snapshot.orders);
@@ -159,7 +158,8 @@ export function Dashboard() {
   const teamCounts = useSC3Counts(groupScopedOrders);
   const allTeamsQuantity = sumWorkOrderQuantity(groupScopedOrders);
   const [filter, setFilter] = useState<BoardFilter>("All Active");
-  const [search, setSearch] = useState("");
+  const [shipWeeksInput, setShipWeeksInput] = useState("4");
+  const shipWeeks = Number(shipWeeksInput);
   const [selectedOrder, setSelectedOrder] = useState<ProductionOrder | null>(null);
   const [columnFilters, setColumnFilters] =
     useState<GridColumnFilters>(EMPTY_GRID_FILTERS);
@@ -189,18 +189,18 @@ export function Dashboard() {
   const scopedOrders = useProductionData(
     snapshot.orders,
     selectedSC3,
-    search,
     "priority",
     "All Active",
     selectedSC1,
+    shipWeeks,
   );
   const baseOrders = useProductionData(
     snapshot.orders,
     selectedSC3,
-    search,
     "priority",
     filter,
     selectedSC1,
+    shipWeeks,
   );
   const priorityById = useMemo(
     () => new Map(baseOrders.map((order, index) => [order.id, index + 1])),
@@ -383,10 +383,9 @@ export function Dashboard() {
       )}
     </TableHead>
   );
-  const stats = useStats(scopedOrders);
+  const stats = useStats(scopedOrders, shipWeeks);
   return (
     <div className="min-h-[100dvh] bg-background text-foreground">
-      {!isEmbedded && (
       <header className="border-b border-border/70 bg-card/55 px-4 py-3 backdrop-blur md:px-6">
         <div className="mx-auto flex max-w-[1800px] flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">
@@ -419,7 +418,7 @@ export function Dashboard() {
           </div>
         </div>
       </header>
-      )}
+
       <main className="mx-auto max-w-[1800px] px-4 py-4 md:px-6">
         {error && (
           <section
@@ -560,10 +559,51 @@ export function Dashboard() {
               label="Build date past due"
               value={stats.buildPastDue}
               tone="danger"
-              filter="Past Due"
-              selected={filter === "Past Due"}
+              filter="Build Date Past Due"
+              selected={filter === "Build Date Past Due"}
               onSelect={setFilter}
             />
+            <Kpi
+              label="Ship date past due"
+              value={stats.shipPastDue}
+              tone="danger"
+              filter="Ship Date Past Due"
+              selected={filter === "Ship Date Past Due"}
+              onSelect={setFilter}
+            />
+            <div className="flex items-stretch gap-2">
+              <Kpi
+                label={`Ship date within ${shipWeeksInput || "X"} weeks`}
+                value={stats.shipWithinWeeks}
+                filter="Ship Date Within X Weeks"
+                selected={filter === "Ship Date Within X Weeks"}
+                onSelect={setFilter}
+              />
+              {filter === "Ship Date Within X Weeks" && (
+                <label className="flex flex-col justify-center gap-1 font-mono text-[9px] uppercase tracking-[0.08em] text-muted-foreground">
+                  Weeks
+                  <Input
+                    type="number"
+                    min={1}
+                    step={1}
+                    inputMode="numeric"
+                    data-testid="input-ship-weeks"
+                    aria-label="Number of weeks for ship date filter"
+                    value={shipWeeksInput}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      if (value === "" || (/^\d+$/.test(value) && Number.isSafeInteger(Number(value)))) {
+                        setShipWeeksInput(value);
+                      }
+                    }}
+                    onBlur={() => {
+                      if (shipWeeks < 1) setShipWeeksInput("4");
+                    }}
+                    className="h-8 w-16 border-border bg-background px-2 font-mono text-xs"
+                  />
+                </label>
+              )}
+            </div>
             </div>
             <p
               data-testid="text-grid-row-count"
@@ -571,16 +611,6 @@ export function Dashboard() {
             >
               {formatQuantity(visibleQuantity)} of {formatQuantity(baseQuantity)} units remaining
             </p>
-            <div className="relative w-[210px] shrink-0">
-              <Search className="absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                data-testid="input-queue-search"
-                value={search}
-                onChange={(event) => setSearch(event.target.value)}
-                placeholder="WO, SO, customer"
-                className="h-8 border-border bg-background pl-8 font-mono text-[11px]"
-              />
-            </div>
             <div className="flex shrink-0 items-center gap-2">
               {hasColumnFilters && (
                 <button
@@ -607,6 +637,16 @@ export function Dashboard() {
           </div>
         </section>
 
+        <Tabs defaultValue="table" className="grid min-w-0 grid-cols-1 gap-3">
+          <TabsList aria-label="Board view" className="h-auto w-fit rounded-sm border border-border/70 bg-card/40 p-0.5">
+            <TabsTrigger value="table" data-testid="tab-table-view" className="rounded-sm px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-[#00281D]">
+              Table View
+            </TabsTrigger>
+            <TabsTrigger value="gantt" data-testid="tab-gantt-chart" className="rounded-sm px-3 py-1.5 font-mono text-[10px] uppercase tracking-[0.1em] text-muted-foreground data-[state=active]:bg-primary data-[state=active]:text-[#00281D]">
+              Gantt Chart
+            </TabsTrigger>
+          </TabsList>
+        <TabsContent value="table" className="mt-0 min-w-0">
         <section className="grid gap-4">
           <div className="min-w-0 overflow-hidden rounded-sm border border-border/70 bg-card/30">
             <div className="overflow-auto">
@@ -714,6 +754,11 @@ export function Dashboard() {
             </div>
           </div>
         </section>
+        </TabsContent>
+        <TabsContent value="gantt" className="mt-0 min-w-0">
+          <ProductionGantt orders={orders} priorityById={priorityById} onSelectOrder={setSelectedOrder} />
+        </TabsContent>
+        </Tabs>
 
       </main>
 

@@ -71,7 +71,9 @@ if (staticDir) {
   app.use(express.static(resolvedStaticDir));
   // SPA fallback: any non-API, non-file GET request returns index.html so
   // client-side routing can handle the path. Registered after "/api" so
-  // API routes/404s above are never shadowed by this.
+  // API routes/404s above are never shadowed by this. Uses a RegExp route
+  // (not a bare "*" string) because Express 5's router (path-to-regexp v8)
+  // rejects an unnamed "*" wildcard outright.
   app.get(/^(?!\/api\/).*/, (_req, res) => {
     res.sendFile(path.join(resolvedStaticDir, "index.html"));
   });
