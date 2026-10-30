@@ -6,6 +6,31 @@ type SalesOrderCustomerNameSource = {
 
 const text = (value: unknown) => (value == null ? "" : String(value).trim());
 
+export const getOrderConfiguration = (
+  workOrder: string,
+  itemNumber: string,
+  lines: readonly {
+    reference: string;
+    item: string;
+    configuration: string;
+    configName: string;
+  }[],
+) => {
+  const matches = workOrder && itemNumber
+    ? lines.filter((line) => line.reference === workOrder && line.item === itemNumber)
+    : [];
+  const ids = new Set(matches.map((line) => text(line.configuration)));
+  if (ids.size !== 1 || !matches.length) {
+    return { configId: "", configDescription: "" };
+  }
+  const configId = text(matches[0].configuration);
+  const descriptions = [...new Set(matches.map((line) => text(line.configName)).filter(Boolean))];
+  return {
+    configId,
+    configDescription: configId && descriptions.length === 1 ? descriptions[0] : "",
+  };
+};
+
 export const getSalesOrderCustomerName = (
   row: SalesOrderCustomerNameSource,
 ) =>

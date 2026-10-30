@@ -1,10 +1,34 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  getOrderConfiguration,
   getSalesOrderCustomerName,
   getWorkOrderQuantity,
 } from "./production-priority-mapping";
 
+test("uses only the cached configuration matching both work order and item", () => {
+  const line = {
+    reference: "365274", item: "09010630", configuration: "09010630-596256",
+    configName: "Sump Pump, Hyd Grips, 2 FT Lgr Adj Columns, Std Screws, High Voltage (380-460)",
+  };
+  assert.deepEqual(getOrderConfiguration("365274", "09010630", [
+    { ...line, reference: "365275", configuration: "WRONG" },
+    { ...line, item: "OTHER", configuration: "WRONG" },
+    line,
+  ]), { configId: line.configuration, configDescription: line.configName });
+});
+
+test("keeps missing or conflicting configurations blank instead of borrowing another line", () => {
+  assert.deepEqual(getOrderConfiguration("365274", "09010630", []),
+    { configId: "", configDescription: "" });
+  const line = { reference: "365274", item: "09010630", configuration: "A", configName: "Name" };
+  assert.deepEqual(getOrderConfiguration("365274", "09010630", [line, { ...line, configuration: "B" }]),
+    { configId: "", configDescription: "" });
+  assert.deepEqual(getOrderConfiguration("365274", "09010630", [{ ...line, configName: "" }]),
+    { configId: "A", configDescription: "" });
+  assert.deepEqual(getOrderConfiguration("365274", "09010630", [{ ...line, configuration: "" }]),
+    { configId: "", configDescription: "" });
+});
 test("uses the Sales Order header name instead of the delivery-address name", () => {
   const row = {
     salesheadercustomername: "Header Customer",

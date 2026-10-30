@@ -1,0 +1,19 @@
+kind = "design-system"
+previewPath = "/production-priority-design-system/"
+title = "Production Priority Board Design System"
+description = "Reusable colors, typography, layout and components extracted from the Production Priority Board. Existing board screens remain unchanged."
+version = "1.0.0"
+id = "artifacts/production-priority-design-system"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/production-priority-design-system/" ]
+localPort = 24475
+
+[services.development]
+run = "pnpm --filter @workspace/production-priority-design-system run dev"
+
+[services.env]
+PORT = "24475"
+BASE_PATH = "/production-priority-design-system/"
