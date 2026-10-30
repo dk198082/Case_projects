@@ -7,9 +7,11 @@ import {
   isValidatedProductionPriorityLinkage,
 } from "./production-priority-filters";
 import {
+  getOrderConfiguration,
   getSalesOrderCustomerName,
   getWorkOrderQuantity,
 } from "./production-priority-mapping";
+import { formatShippingDestination, shippingDestinationQuery, type ShippingAddressRow } from "./shipping-destination";
 
 type ProductionRow = {
   salesordernumber: string | null;
@@ -229,6 +231,7 @@ async function loadSnapshot(): Promise<PrioritySnapshot> {
       customerPO: "",
       itemNumber: text(row.itemnumber),
       description: text(row.itemdesc) || text(row.productionordername),
+      ...getOrderConfiguration(workOrder, text(row.itemnumber), salesOrderLines),
       SC1: text(row.sc1),
       SC2: text(row.sc2),
       SC3: text(row.sc3),
@@ -329,6 +332,31 @@ async function getSnapshot(forceRefresh: boolean) {
 
   return inFlightSnapshot;
 }
+
+router.get("/production-priority/shipping-destination", requireLogin, async (req, res, next) => {
+  try {
+    const { workOrder, company } = req.query;
+    if (typeof workOrder !== "string" || !workOrder.trim() || workOrder.length > 100 ||
+        typeof company !== "string" || !company.trim() || company.length > 20) {
+      res.status(400).json({ message: "A work order and company are required." });
+      return;
+    }
+    const schema = process.env.AZURE_PG_SCHEMA ?? "";
+    const result = await pool.query<ShippingAddressRow>(
+      shippingDestinationQuery(schema),
+      [workOrder.trim(), company.trim()],
+    );
+    res.set("Cache-Control", "no-store");
+    if (!result.rows.length) {
+      res.status(404).json({ message: "Work order is no longer available on the board." });
+      return;
+    }
+    res.json(formatShippingDestination(result.rows[0]));
+  } catch (error) {
+    req.log.error({ err: error }, "Unable to load the order shipping destination");
+    next(error);
+  }
+});
 
 router.get("/production-priority", requireLogin, async (req, res, next) => {
   try {
