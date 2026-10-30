@@ -30,17 +30,18 @@ export type DataflowSection = {
  */
 export const DATAFLOW_DOCUMENT = {
   title: "Production Priority Board dataflow",
-  version: "2026.08.26",
-  updatedOn: "26 August 2026",
+  version: "2026.10.28",
+  updatedOn: "28 October 2026",
   purpose:
     "Trace the read-only path from Azure PostgreSQL source objects to the production queue, future demand panel, KPIs, exceptions, and data-quality indicators.",
   runtimePath: [
     "Browser UI",
     "GET /api/production-priority",
     "Azure PostgreSQL connection pool",
-    "d365fo.vw_salesprodmachines365 + linkage audit objects",
+    "Prepared production_priority_app_cache snapshot",
     "Server normalization and Zod contract",
     "Client filters, sorting, priority, KPIs, and presentation",
+    "On drill-down only: authenticated shipping-destination lookup → cached order/company → matching sales-order header",
   ],
   objects: [
     {
@@ -51,7 +52,7 @@ export const DATAFLOW_DOCUMENT = {
       usedFor: "Connection selection and safely quoted schema-qualified object names. Azure takes precedence over DATABASE_URL when the Azure connection is complete.",
     },
     {
-      name: "d365fo.vw_salesprodmachines365",
+      name: "d365fo.vw_salesprodmachines365_app",
       type: "view",
       role: "Base machine/production rowset. One source row is retained with a generated audit_row_id for the downstream CTE audits.",
       fields: [
@@ -70,8 +71,8 @@ export const DATAFLOW_DOCUMENT = {
       name: "d365fo.salesorderheaderv3staging",
       type: "table",
       role: "Sales-order header lookup used for header-level linkage.",
-      fields: ["salesordernumber", "dataareaid"],
-      usedFor: "The sales-header portion of deterministic linkage validation.",
+      fields: ["salesordernumber", "dataareaid", "deliveryaddresscity", "deliveryaddressstateid", "deliveryaddresscountryregionisocode", "deliveryaddresscountryregionid", "tomodifieddatetime"],
+      usedFor: "The sales-header portion of deterministic linkage validation. A separate drill-down-only lookup supplies shipping city, state and country from the most recently modified matching sales header.",
     },
     {
       name: "d365fo.salesorderlinev2staging",
@@ -98,15 +99,22 @@ export const DATAFLOW_DOCUMENT = {
   sections: [
     {
       title: "1. Source rowset and mandatory scope filters",
-      summary: "The first CTE filters the machine view before any order, demand, team, KPI, or data-quality result is produced.",
+      summary: "The external cache-refresh procedure filters the app source view. Board requests only read the prepared snapshot; they do not rebuild it.",
       items: [
+        {
+          name: "Source-view eligibility and optional employee enrichment",
+          stage: "guardrail",
+          formula: "Require a TOUS sales header and sales line with status 1, joined by exact sales-order number and company, plus a released-product record matching item and company. A production order appears only when demand sales order, company, item, and demand-line inventory lot match the sales line exactly. The employee lookup is a LEFT JOIN on responsible personnel number; configuration translations are also optional.",
+          result: "Blank or unmatched responsible personnel no longer excludes an otherwise eligible order. Missing required sales/product links still exclude it; unmatched production demand cannot become a board work order.",
+          source: "d365fo.vw_salesprodmachines365_app",
+        },
         {
           name: "Required source predicate",
           stage: "guardrail",
           formula:
             "Keep only itemnumber != '02002107' AND sc2 in [Electmech, Machine, Hydraulic] AND sc1 in the approved list AND sc3 in the approved list AND normalized status not in [COMPLETED, REPORTEDFINISHED] AND salesorderpoolid does not contain 'Consign' (case-insensitive).",
           result: "The filtered machine CTE is the only rowset passed into stop auditing, linkage auditing, order mapping, demand derivation, and quality counts.",
-          source: "production-priority-filters.ts → requiredProductionPriorityWhereSql() and isRequiredProductionPriorityRow()",
+          source: "d365fo.sp_refresh_production_priority_cache(); production-priority-filters.ts mirrors the approved scope",
         },
         {
           name: "Approved SC1 values",
@@ -191,6 +199,13 @@ export const DATAFLOW_DOCUMENT = {
           source: "production-priority.ts → normalizeStatus()",
         },
         {
+          name: "Work-order configuration",
+          stage: "transform",
+          formula: "From cached salesorderlines, match both reference = productionordernumber and item = itemnumber. Expose configId from configuration and configDescription from configname only when unambiguous; unavailable values remain blank.",
+          result: "The grid combines Part Number / Config ID on one line with the part description beneath; its shared column filter searches all three values. The drill-down combines Config ID / Config Description on one row directly below the part details, wrapping when needed. Excel retains a separate Config ID field. No additional source query or cache rebuild is performed.",
+          source: "production-priority-mapping.ts → getOrderConfiguration(); Dashboard.tsx; OrderDetailsDialog.tsx",
+        },
+        {
           name: "Active production rows",
           stage: "guardrail",
           formula: "From required rows, keep rows with a non-empty productionordernumber and a normalized status of STARTED or RELEASED.",
@@ -217,6 +232,13 @@ export const DATAFLOW_DOCUMENT = {
           formula: "Add HOLD when stage/resource contains Hold; BUILD & SHIP PAST DUE when both dates are past due; BUILD DATE PAST DUE or SHIP DATE PAST DUE for one; NO BUILD DATE when build date is blank; LINKAGE NOT VALIDATED or UNLINKED from linkage status.",
           result: "The status and detail panel can explain late, hold-instruction, missing-date, and linkage conditions without recalculating them independently. By product decision, a stop condition no longer changes an order's status or excludes it from priority.",
           source: "production-priority.ts → exceptionFlags",
+        },
+        {
+          name: "Shipping destination (detail panel)",
+          stage: "output",
+          formula: "On drill-down open, GET /api/production-priority/shipping-destination resolves the cached work order and company to its sales order. Match salesorderheaderv3staging on salesordernumber + dataareaid, prefer latest tomodifieddatetime, trim deliveryaddresscity and deliveryaddressstateid, and expand the ISO country code to an English country name (fall back to deliveryaddresscountryregionid when ISO is absent). Join available parts with commas.",
+          result: "Shipping Destination displays city, state and country below Customer. Loading, missing address and lookup failure are explicit; failures offer Retry. The main board snapshot stays cache-only, and opening a drill-down never refreshes the external cache.",
+          source: "shipping-destination.ts; ShippingDestination.tsx; OrderDetailsDialog.tsx",
         },
         {
           name: "Sales order lines (detail panel)",
@@ -309,7 +331,7 @@ export const DATAFLOW_DOCUMENT = {
         {
           name: "Queue filtering",
           stage: "transform",
-          formula: "Optionally restrict to a selected SC1 group, then select a specific SC3 team or All; search lowercases and matches workOrder, salesOrder, or customer; then apply the Started/Released status filter or the Past Due filter.",
+          formula: "Apply selected SC1 groups and SC3 teams (remembered in sessionStorage), then the active KPI filter: All Active, Started, Released, Build Date Past Due, Ship Date Past Due, or Ship Date Within X Weeks. Apply all non-empty column text filters together as case-insensitive substring matches, plus inclusive from/to ranges on build start, build end, and ship dates. A missing date fails an active range for that date.",
           result: "The visible table is a selected, searchable operational view of the snapshot; the search control lives beside the KPI filter cards, with All group / All team providing a cross-team queue.",
           source: "use-production-data.ts → useProductionData()",
         },

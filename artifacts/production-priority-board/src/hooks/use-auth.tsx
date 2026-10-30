@@ -57,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setError(null);
 
     try {
-      const response = await fetch("/api/auth/me", {
+      const response = await fetch("/api/me", {
         credentials: "same-origin",
         cache: "no-store",
         headers: { Accept: "application/json" },
@@ -101,7 +101,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const beginLogin = useCallback(() => {
     const returnTo = `${window.location.pathname}${window.location.search}`;
-    const loginUrl = `/api/auth/login?returnTo=${encodeURIComponent(returnTo)}`;
+    const loginUrl = `/api/login?returnTo=${encodeURIComponent(returnTo)}`;
     const embedded = window.top !== window.self;
 
     if (embedded) {

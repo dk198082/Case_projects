@@ -27,6 +27,7 @@ export async function exportProductionGridToExcel(
       width: 18,
     },
     { header: "Part Number", key: "itemNumber", width: 20 },
+    { header: "Config ID", key: "configId", width: 28 },
     { header: "Description", key: "description", width: 42 },
     { header: "Customer", key: "customer", width: 32 },
     { header: "Sales Order", key: "salesOrder", width: 18 },
@@ -50,6 +51,7 @@ export async function exportProductionGridToExcel(
       workOrderQty: order.workOrderQty,
       scheduledWorkOrderQty: order.scheduledWorkOrderQty,
       itemNumber: order.itemNumber,
+      configId: order.configId,
       description: order.description,
       customer: order.customer,
       salesOrder: order.salesOrder,
@@ -66,7 +68,7 @@ export async function exportProductionGridToExcel(
   worksheet.views = [{ state: "frozen", ySplit: 1 }];
   worksheet.autoFilter = {
     from: "A1",
-    to: "O1",
+    to: "P1",
   };
   worksheet.getRow(1).font = { bold: true, color: { argb: "FF00281D" } };
   worksheet.getRow(1).fill = {

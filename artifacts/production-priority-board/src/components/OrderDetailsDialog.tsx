@@ -8,6 +8,7 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
+import { ShippingDestination } from "./ShippingDestination";
 
 export function OrderDetailsDialog({ 
   order, 
@@ -33,14 +34,19 @@ export function OrderDetailsDialog({
               {order.status}
             </Badge>
           </div>
-          <SheetDescription className="font-mono text-muted-foreground mt-1">
+          <SheetDescription className="font-mono text-foreground mt-1">
             {order.itemNumber} - {order.description}
           </SheetDescription>
+          <p className="mt-1 break-words text-sm text-muted-foreground">
+            Config: <span className="font-mono">{order.configId || "—"}</span>
+            {" - "}
+            {order.configDescription || "—"}
+          </p>
         </SheetHeader>
 
         <div className="space-y-6 py-4">
           <div className="grid grid-cols-1 gap-x-8 gap-y-6 sm:grid-cols-2">
-            <div className="space-y-6">
+            <div className="min-w-0 space-y-6">
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground uppercase tracking-wider">Production Group</p>
                 <p className="font-mono">{order.productionGroupName || order.productionGroup || "—"}</p>
@@ -57,6 +63,14 @@ export function OrderDetailsDialog({
                   {formatCalendarDate(order.buildEndDate)}
                 </p>
               </div>
+              {order.customerReference && (
+                <div className="space-y-1">
+                  <p className="text-xs text-muted-foreground uppercase tracking-wider">Engineering / Cust Ref</p>
+                  <div className="mt-1 break-words text-sm bg-muted/30 p-3 rounded-md border border-border/30">
+                    {order.customerReference}
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="space-y-6">
@@ -68,6 +82,7 @@ export function OrderDetailsDialog({
                 <p className="text-xs text-muted-foreground uppercase tracking-wider">Customer</p>
                 <p className="font-medium text-foreground truncate" title={order.customer}>{order.customer}</p>
               </div>
+              <ShippingDestination workOrder={order.workOrder} company={order.linkageAudit.company} />
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground uppercase tracking-wider">Sales Ship Date</p>
                 <p className="font-mono">{formatCalendarDate(order.salesShipDate)}</p>
@@ -75,14 +90,6 @@ export function OrderDetailsDialog({
             </div>
           </div>
 
-          {order.customerReference && (
-            <div className="space-y-1">
-              <p className="text-xs text-muted-foreground uppercase tracking-wider">Engineering / Cust Ref</p>
-              <div className="mt-1 text-sm bg-muted/30 p-3 rounded-md border border-border/30">
-                {order.customerReference}
-              </div>
-            </div>
-          )}
         </div>
 
         <div className="space-y-2 pb-4">

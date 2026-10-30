@@ -30,6 +30,8 @@ export type ProductionOrder = {
   customerPO: string;
   itemNumber: string;
   description: string;
+  configId: string;
+  configDescription: string;
   SC1: string;
   SC2: string;
   SC3: string;
@@ -234,6 +236,8 @@ export const MOCK_ORDERS: ProductionOrder[] = machineRows.map((row, index) => {
     customerPO: related ? text(related["Ref #"]) : "",
     itemNumber: text(row.ITEMNUMBER),
     description: related ? text(related.Description) : "",
+    configId: "",
+    configDescription: "",
     SC1: related ? text(related.SC1) : "",
     SC2: "",
     SC3: text(row.SC3),

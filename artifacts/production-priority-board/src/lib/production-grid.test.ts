@@ -20,6 +20,8 @@ const order = (
     customerPO: "",
     itemNumber: "",
     description: "",
+    configId: "",
+    configDescription: "",
     SC1: "",
     SC2: "",
     SC3: "",
@@ -76,6 +78,22 @@ const orders = [
     status: "STARTED",
   }),
 ];
+
+it("filters and sorts configurations within the combined Part column", () => {
+  const configured = [
+    order("a", { itemNumber: "PART", configId: "CONFIG-20" }),
+    order("b", { itemNumber: "PART", configId: "CONFIG-2" }),
+  ];
+  const priorities = new Map([["a", 1], ["b", 2]]);
+  expect(applyProductionGridView(
+    configured, priorities, { ...EMPTY_GRID_FILTERS, part: "config-2" },
+    { key: "part", direction: "asc" },
+  ).map((row) => row.id)).toEqual(["b", "a"]);
+  expect(applyProductionGridView(
+    configured, priorities, { ...EMPTY_GRID_FILTERS, part: "CONFIG-20" },
+    { key: "priority", direction: "asc" },
+  ).map((row) => row.id)).toEqual(["a"]);
+});
 const priorities = new Map([
   ["1", 1],
   ["2", 2],

@@ -67,7 +67,7 @@ const columnText = (
     case "workOrderQty":
       return `${order.workOrderQty} / ${order.scheduledWorkOrderQty}`;
     case "part":
-      return `${order.itemNumber} ${order.description}`;
+      return `${order.itemNumber} / ${order.configId} ${order.description}`;
     case "salesOrder":
       return order.salesOrder;
     case "customer":

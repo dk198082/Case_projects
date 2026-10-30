@@ -137,9 +137,6 @@ function Kpi({
 
 export function Dashboard() {
   const { user } = useAuth();
-  // add for hide logout option in embeded 
-  const isEmbedded =
-    typeof window !== "undefined" && window.self !== window.top;
   const { snapshot, isLoading, error } = usePrioritySnapshot();
   const { selectedSC1, setSelectedSC1 } = useSessionSC1(snapshot.orders);
   const groups = useSC1Groups(snapshot.orders);
@@ -389,7 +386,6 @@ export function Dashboard() {
   const stats = useStats(scopedOrders, shipWeeks);
   return (
     <div className="min-h-[100dvh] bg-background text-foreground">
-    {!isEmbedded && (
       <header className="border-b border-border/70 bg-card/55 px-4 py-3 backdrop-blur md:px-6">
         <div className="mx-auto flex max-w-[1800px] flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div className="min-w-0">
@@ -422,7 +418,7 @@ export function Dashboard() {
           </div>
         </div>
       </header>
-      )}
+
       <main className="mx-auto max-w-[1800px] px-4 py-4 md:px-6">
         {error && (
           <section
@@ -654,13 +650,13 @@ export function Dashboard() {
         <section className="grid gap-4">
           <div className="min-w-0 overflow-hidden rounded-sm border border-border/70 bg-card/30">
             <div className="overflow-auto">
-              <Table className="min-w-[1370px]">
+              <Table className="min-w-[1460px]">
                 <TableHeader className="sticky top-0 z-10 bg-[#07392b]">
                   <TableRow className="border-border/80 hover:bg-transparent">
                     {sortableHead("priority", "Priority", "w-[74px]")}
                     {sortableHead("workOrder", "Work order", "w-[120px]")}
                     {sortableHead("workOrderQty", "WO qty", "w-[90px]", "Quantity")}
-                    {sortableHead("part", "Part number / Description", "w-[190px]", "Part or description")}
+                    {sortableHead("part", "Part number / Config ID / Description", "w-[280px]", "Part, config ID or description")}
                     {sortableHead("salesOrder", "Sales order", "w-[120px]")}
                     {sortableHead("customer", "Customer", "min-w-[230px]", "Customer or reference")}
                     {sortableHead("buildStartDate", "Build start", "w-[142px]")}
@@ -706,8 +702,10 @@ export function Dashboard() {
                             </p>
                           </TableCell>
                           <TableCell className="py-2">
-                            <p className="max-w-[190px] truncate font-mono text-xs font-semibold text-foreground">{order.itemNumber || "—"}</p>
-                            <p className="mt-0.5 max-w-[190px] truncate text-[10px] text-muted-foreground">{order.description || "—"}</p>
+                            <p className="max-w-[280px] truncate font-mono text-xs font-semibold text-foreground" title={`${order.itemNumber || "—"} / ${order.configId || "—"}`}>
+                              {order.itemNumber || "—"} / {order.configId || "—"}
+                            </p>
+                            <p className="mt-0.5 max-w-[280px] truncate text-[10px] text-muted-foreground">{order.description || "—"}</p>
                           </TableCell>
                           <TableCell className="py-2">
                             <p className="font-mono text-xs font-semibold text-foreground">

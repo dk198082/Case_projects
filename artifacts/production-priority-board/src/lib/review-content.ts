@@ -28,8 +28,8 @@ export const REQUIREMENTS_REVIEW: {
   title: string;
   sections: ReviewSection[];
 } = {
-  version: "2026.08.26",
-  reviewedOn: "26 August 2026",
+  version: "2026.10.28",
+  reviewedOn: "28 October 2026",
   sourceDocument: "PRODUCTION_PRIORITY_BOARD_replit_app_develop_1787559712168.docx",
   title: "Production Priority Board requirements review",
   sections: [
@@ -38,11 +38,32 @@ export const REQUIREMENTS_REVIEW: {
       summary: "The board is an operational priority and visibility tool, not a scheduling or capacity-planning engine.",
       items: [
         {
+          title: "Work-order configuration in grid and drill-down",
+          status: "fulfilled",
+          requirement: "Combine Part Number / Config ID in the grid and show Config ID / Config Description on one row beneath the part details in the drill-down.",
+          functional: "The shared Part column supports filtering by part number, configuration ID, or description. Excel keeps Config ID as a separate field. The drill-down shows both configuration values together, wrapping when necessary. Missing values display an em dash.",
+          technical: "The API matches cached sales-order lines by both work-order reference and item, exposing configId and configDescription only when unambiguous. No source-query or external refresh behavior changes.",
+        },
+        {
+          title: "Optional responsible-person enrichment",
+          status: "fulfilled",
+          requirement: "Do not hide an otherwise eligible work order because its sales-order responsible person is blank or absent from worker staging.",
+          functional: "Missing employee information does not remove an eligible Started or Released work order. Required company, sales-demand, product-classification, and status rules remain unchanged.",
+          technical: "d365fo.vw_salesprodmachines365_app uses LEFT JOIN for hcmworkerstaging. The existing external procedure owns snapshot refresh; login, API, and browser refresh must not execute it.",
+        },
+        {
+          title: "Shipping destination in order drill-down",
+          status: "fulfilled",
+          requirement: "Display shipping city, state and country when reviewing an order.",
+          functional: "Shipping Destination appears below Customer in the right-hand detail column. Engineering / Cust Ref appears exclusively in the left-hand column directly below Build End Date when populated. Loading, missing address, and failed lookup are distinct; a failed lookup can be retried.",
+          technical: "The authenticated shipping-destination endpoint resolves the sales order from the prepared cache by work order and company, then reads the matching sales-order header. The main snapshot and external cache refresh are unchanged.",
+        },
+        {
           title: "Live source and runtime boundary",
           status: "fulfilled",
           requirement: "Use the supplied production data while keeping the UI independent from the raw source format.",
           functional: "The board loads the current production snapshot and keeps the original workbook only as an audit/reference artifact.",
-          technical: "The browser reads the read-only production-priority API. The API adapter reads Azure PostgreSQL through d365fo.vw_salesprodmachines365 and normalizes the response.",
+          technical: "The browser reads the read-only production-priority API. The API adapter reads d365fo.production_priority_app_cache, prepared externally from d365fo.vw_salesprodmachines365_app, and normalizes the response.",
         },
         {
           title: "Layered data architecture",
