@@ -119,8 +119,45 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/ErrorResponse"
+  /production-priority/shipping-destination:
+    get:
+      operationId: getShippingDestination
+      tags: [production-priority]
+      summary: Read shipping city, state and country for an order drill-down
+      parameters:
+        - name: workOrder
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 100 }
+        - name: company
+          in: query
+          required: true
+          schema: { type: string, minLength: 1, maxLength: 20 }
+      responses:
+        "200":
+          description: Shipping address from the sales-order header
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShippingDestination"
+        "400":
+          description: Missing or invalid order/company
+        "401":
+          description: Login required
+        "404":
+          description: Work order is no longer present in the prepared cache
 components:
   schemas:
+    ShippingDestination:
+      type: object
+      required: [city, state, country, destination]
+      properties:
+        city: { type: string }
+        state: { type: string }
+        country: { type: string }
+        destination:
+          type: string
+          description: Available shipping city, state and country, separated by commas.
     HealthStatus:
       type: object
       properties:
@@ -160,6 +197,8 @@ components:
         - customerPO
         - itemNumber
         - description
+        - configId
+        - configDescription
         - SC1
         - SC2
         - SC3
@@ -196,6 +235,12 @@ components:
         customerPO: { type: string }
         itemNumber: { type: string }
         description: { type: string }
+        configId:
+          type: string
+          description: Configuration ID from cached sales lines matching both work-order reference and item; blank when absent or ambiguous.
+        configDescription:
+          type: string
+          description: Translated description for the matched configuration; blank when unavailable or ambiguous.
         SC1: { type: string }
         SC2: { type: string }
         SC3: { type: string }

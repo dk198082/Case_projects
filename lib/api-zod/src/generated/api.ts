@@ -74,6 +74,8 @@ export const GetProductionPriorityResponse = zod.object({
   "customerPO": zod.string(),
   "itemNumber": zod.string(),
   "description": zod.string(),
+  "configId": zod.string().describe('Configuration ID from cached sales lines matching both work-order reference and item; blank when absent or ambiguous.'),
+  "configDescription": zod.string().describe('Translated description for the matched configuration; blank when unavailable or ambiguous.'),
   "SC1": zod.string(),
   "SC2": zod.string(),
   "SC3": zod.string(),
@@ -144,6 +146,28 @@ export const GetProductionPriorityResponse = zod.object({
   "invalidDates": zod.number()
 }),
   "dataAsOf": zod.string()
+})
+
+
+/**
+ * @summary Read shipping city, state and country for an order drill-down
+ */
+export const getShippingDestinationQueryWorkOrderMax = 100;
+
+export const getShippingDestinationQueryCompanyMax = 20;
+
+
+
+export const GetShippingDestinationQueryParams = zod.object({
+  "workOrder": zod.coerce.string().min(1).max(getShippingDestinationQueryWorkOrderMax),
+  "company": zod.coerce.string().min(1).max(getShippingDestinationQueryCompanyMax)
+})
+
+export const GetShippingDestinationResponse = zod.object({
+  "city": zod.string(),
+  "state": zod.string(),
+  "country": zod.string(),
+  "destination": zod.string().describe('Available shipping city, state and country, separated by commas.')
 })
 
 

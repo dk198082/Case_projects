@@ -3,6 +3,11 @@
 - [API contract regeneration](api-contract-regeneration.md) — Rebuild generated shared client types before checking consumers after contract changes.
 - [Production Priority Board route-derived build dates](production-priority-board-route-dates.md) — D365FO route source view, warehouse-step filtering, and duplicate/placeholder row gotchas.
 - [Production Priority Board sales-order-line schema](production-priority-board-sales-lines.md) — field-to-column mapping, and never use LATERAL per-row joins against large staging tables.
+- [Production Priority Board customer names](production-priority-board-customer-names.md) — use Sales Order header salesordername; deliveryaddressname is only the ship-to destination.
+- [Production Priority Board Work Order quantity](production-priority-board-work-order-quantity.md) — totals use remaining report-as-finished quantity; grid shows remaining / scheduled.
 - [Production Priority Board production groups](production-priority-board-production-groups.md) — Production Group is the third slash-delimited Resource segment.
 - [Production Priority Board KPI filters](production-priority-board-kpi-filters.md) — KPI cards show scoped totals and directly control the queue filter.
 - [Admin Console role labels](admin-console-role-labels.md) — app selection is separate; access responses use bare Read Only and Read / Write labels.
+- [Production Priority cache ownership](production-priority-cache-ownership.md) — board requests read the prepared cache; external source-load orchestration owns refresh and filtering.
+- [Design-system application approval](design-system-approval.md) — extraction approval does not authorize changing existing board or canvas screens.
+- [Component verification](component-verification.md) — headless-DOM limitations are not source component regressions; review observer-driven layouts in a real browser.

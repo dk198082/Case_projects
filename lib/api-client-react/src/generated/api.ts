@@ -25,8 +25,10 @@ import type {
   CurrentUser,
   ErrorResponse,
   GetProductionPriorityParams,
+  GetShippingDestinationParams,
   HealthStatus,
-  ProductionPriorityResponse
+  ProductionPriorityResponse,
+  ShippingDestination
 } from './api.schemas';
 
 import { customFetch } from '../custom-fetch';
@@ -523,6 +525,90 @@ export function useGetProductionPriority<TData = Awaited<ReturnType<typeof getPr
  ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
 
   const queryOptions = getGetProductionPriorityQueryOptions(params,options)
+
+  const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
+
+  return withQueryKey(query, queryOptions.queryKey);
+}
+
+
+
+
+
+
+
+export const getGetShippingDestinationUrl = (params: GetShippingDestinationParams,) => {
+  const normalizedParams = new URLSearchParams();
+
+  Object.entries(params || {}).forEach(([key, value]) => {
+
+    if (value !== undefined) {
+      normalizedParams.append(key, value === null ? 'null' : String(value))
+    }
+  });
+
+  const stringifiedParams = normalizedParams.toString();
+
+  return stringifiedParams.length > 0 ? `/api/production-priority/shipping-destination?${stringifiedParams}` : `/api/production-priority/shipping-destination`
+}
+
+/**
+ * @summary Read shipping city, state and country for an order drill-down
+ */
+export const getShippingDestination = async (params: GetShippingDestinationParams, options?: Parameters<typeof customFetch>[1]): Promise<ShippingDestination> => {
+
+  return customFetch<ShippingDestination>(getGetShippingDestinationUrl(params),
+  {
+    ...options,
+    method: 'GET'
+
+
+  }
+);}
+
+
+
+
+
+export const getGetShippingDestinationQueryKey = (params?: GetShippingDestinationParams,) => {
+    return [
+    `/api/production-priority/shipping-destination`, ...(params ? [params] : [])
+    ] as const;
+    }
+
+
+export const getGetShippingDestinationQueryOptions = <TData = Awaited<ReturnType<typeof getShippingDestination>>, TError = ErrorType<void>>(params: GetShippingDestinationParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getShippingDestination>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+) => {
+
+const {query: queryOptions, request: requestOptions} = options ?? {};
+
+  const queryKey =  queryOptions?.queryKey ?? getGetShippingDestinationQueryKey(params);
+
+
+
+    const queryFn: QueryFunction<Awaited<ReturnType<typeof getShippingDestination>>> = ({ signal }) => getShippingDestination(params, { signal, ...requestOptions });
+
+
+
+
+
+   return  { queryKey, queryFn, ...queryOptions} as UseQueryOptions<Awaited<ReturnType<typeof getShippingDestination>>, TError, TData> & { queryKey: QueryKey }
+}
+
+export type GetShippingDestinationQueryResult = NonNullable<Awaited<ReturnType<typeof getShippingDestination>>>
+export type GetShippingDestinationQueryError = ErrorType<void>
+
+
+/**
+ * @summary Read shipping city, state and country for an order drill-down
+ */
+
+export function useGetShippingDestination<TData = Awaited<ReturnType<typeof getShippingDestination>>, TError = ErrorType<void>>(
+ params: GetShippingDestinationParams, options?: { query?:UseQueryOptions<Awaited<ReturnType<typeof getShippingDestination>>, TError, TData>, request?: SecondParameter<typeof customFetch>}
+
+ ):  UseQueryResult<TData, TError> & { queryKey: QueryKey } {
+
+  const queryOptions = getGetShippingDestinationQueryOptions(params,options)
 
   const query = useQuery(queryOptions) as  UseQueryResult<TData, TError> & { queryKey: QueryKey };
 

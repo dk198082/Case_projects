@@ -5,6 +5,14 @@
  * API specification
  * OpenAPI spec version: 0.1.0
  */
+export interface ShippingDestination {
+  city: string;
+  state: string;
+  country: string;
+  /** Available shipping city, state and country, separated by commas. */
+  destination: string;
+}
+
 export interface HealthStatus {
   status: string;
 }
@@ -84,6 +92,10 @@ export interface ProductionOrder {
   customerPO: string;
   itemNumber: string;
   description: string;
+  /** Configuration ID from cached sales lines matching both work-order reference and item; blank when absent or ambiguous. */
+  configId: string;
+  /** Translated description for the matched configuration; blank when unavailable or ambiguous. */
+  configDescription: string;
   SC1: string;
   SC2: string;
   SC3: string;
@@ -173,5 +185,18 @@ export type GetProductionPriorityParams = {
  * Bypass the short server-side read cache.
  */
 refresh?: boolean;
+};
+
+export type GetShippingDestinationParams = {
+/**
+ * @minLength 1
+ * @maxLength 100
+ */
+workOrder: string;
+/**
+ * @minLength 1
+ * @maxLength 20
+ */
+company: string;
 };
 

@@ -4,7 +4,7 @@ generated = []
 [[outputs]]
 id = "TQPvCW8oRW-rAqSlVL-C1"
 uri = "file://artifacts/production-priority-board/public/documents/production-priority-requirements-review.html"
-type = "text"
+type = "html"
 title = "Production Priority Requirements Review"
 description = "Standalone downloadable requirements review document generated from the app manifest."
 logical_id = "63ecb6ca-377b-4ffd-9241-0717e2ddc3e6"
@@ -18,7 +18,7 @@ content_type = "text/html"
 [[outputs]]
 id = "COtMELUwuJkndpZJGBkuH"
 uri = "file://artifacts/production-priority-board/public/documents/production-priority-dataflow.html"
-type = "text"
+type = "html"
 title = "Production Priority Dataflow"
 description = "Standalone downloadable dataflow document covering source objects, joins, rules, and calculations."
 logical_id = "fb08f57f-052b-44e3-9a57-27b40328c444"
@@ -28,3 +28,45 @@ mtime_ms = 1787718443020
 storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:ee04a9af-f4f9-4fc2-b3cb-91bee27c5842/fb08f57f-052b-44e3-9a57-27b40328c444/60b570dd-7bb0-4183-a145-8c2f5a6bc047"
 storage_version_token = "1787718495473788"
 content_type = "text/html"
+
+[[outputs]]
+id = "EG7c6S6c9_8caNXwBoZuo"
+uri = "file://.agents/outputs/production-priority-postgres-data-model.pdf"
+type = "pdf"
+title = "Production Priority Board — PostgreSQL Data Model"
+description = "15-page technical reference covering all PostgreSQL tables and views directly used by the application, including relationships, join keys, fields, transformations, row estimates, and operational rules."
+logical_id = "195265c3-3ffb-4ce2-8e46-a3672e7217d8"
+content_hash = "sha256:30d28ad1956825a3e7c9a447859471a7f64cd2771972a9831b8f951cf10894b3"
+size = 167245
+mtime_ms = 1789703131841
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:ee04a9af-f4f9-4fc2-b3cb-91bee27c5842/195265c3-3ffb-4ce2-8e46-a3672e7217d8/0ffdd066-484c-4cfa-805f-c7d48de3c69c"
+storage_version_token = "1789703159885581"
+content_type = "application/pdf"
+
+[[outputs]]
+id = "6CkGkBXAEDnjDwUuUcZTb"
+uri = "file://docs/production-priority-board-ux-standards-discovery.md"
+type = "text"
+title = "Production Priority Board UX Standards Discovery"
+description = "Evidence-based UX inventory with the relevant file tree, 14-category taxonomy, reusable components, tokens, inconsistencies, and board-specific decisions."
+logical_id = "8eea52dd-dfc8-4bef-8647-b253b6552ce2"
+content_hash = "sha256:31bc0d32773281ee771358eca6c08f134761cb56fd657726eb7fbbc65bad4f87"
+size = 28864
+mtime_ms = 1790189042551
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:ee04a9af-f4f9-4fc2-b3cb-91bee27c5842/8eea52dd-dfc8-4bef-8647-b253b6552ce2/f48c22a7-40b8-42bc-83c6-1f6413f7daec"
+storage_version_token = "1790189055534429"
+content_type = "text/markdown"
+
+[[outputs]]
+id = "nIIuKpCkUSpBdMtkezuVP"
+uri = "file://generated-artifacts/production-priority-audit/production-priority-missing-orders.xlsx"
+type = "table"
+title = "Missing Started / Released Work Orders — Audit"
+description = "Read-only audit as of 21 October 2026, 11:05 AM Eastern. Includes all 17 TOUS orders passing sales classifications but excluded for another reason, 314 mixed-reason exclusions, non-TOUS orders, and full source reconciliation."
+logical_id = "37b0c91b-904a-4625-8d2c-afb48246cf29"
+content_hash = "sha256:f692f275deb17a375a64d58888934ae9833f8b498601b493f2735e9e94a9acd5"
+size = 2263420
+mtime_ms = 1792595163780
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:ee04a9af-f4f9-4fc2-b3cb-91bee27c5842/37b0c91b-904a-4625-8d2c-afb48246cf29/f0f80cbb-e565-41ec-ada4-78f322c443ca"
+storage_version_token = "1792595243818270"
+content_type = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"

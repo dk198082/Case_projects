@@ -22,6 +22,10 @@ export interface ProductionOrder {
   customerPO: string;
   itemNumber: string;
   description: string;
+  /** Configuration ID from cached sales lines matching both work-order reference and item; blank when absent or ambiguous. */
+  configId: string;
+  /** Translated description for the matched configuration; blank when unavailable or ambiguous. */
+  configDescription: string;
   SC1: string;
   SC2: string;
   SC3: string;
