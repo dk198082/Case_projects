@@ -237,10 +237,10 @@ components:
         description: { type: string }
         configId:
           type: string
-          description: Configuration ID from cached sales lines matching both work-order reference and item; blank when absent or ambiguous.
+          description: Production-order configuration ID from the prepared cache, including for stock and unlinked work orders; blank when absent.
         configDescription:
           type: string
-          description: Translated description for the matched configuration; blank when unavailable or ambiguous.
+          description: Preferred translated description for the production-order configuration from the prepared cache; blank when unavailable.
         SC1: { type: string }
         SC2: { type: string }
         SC3: { type: string }

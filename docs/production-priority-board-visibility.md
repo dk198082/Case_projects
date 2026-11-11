@@ -1,5 +1,10 @@
 # Production Priority Board visibility conditions
 
+> Historical audit reference: the eligibility rules below were superseded on
+> 6 November 2026. The current scope is documented in
+> [Production Priority Machine scope](production-priority-machine-scope.md).
+> Do not use the historical classification lists or sales-demand gates for new work.
+
 Verified against the Azure source-view and refresh-procedure definitions and
 the current API and browser code on 21 October 2026.
 
