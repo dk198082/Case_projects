@@ -28,8 +28,8 @@ export const REQUIREMENTS_REVIEW: {
   title: string;
   sections: ReviewSection[];
 } = {
-  version: "2026.10.28",
-  reviewedOn: "28 October 2026",
+  version: "2026.11.06",
+  reviewedOn: "6 November 2026",
   sourceDocument: "PRODUCTION_PRIORITY_BOARD_replit_app_develop_1787559712168.docx",
   title: "Production Priority Board requirements review",
   sections: [
@@ -42,13 +42,13 @@ export const REQUIREMENTS_REVIEW: {
           status: "fulfilled",
           requirement: "Combine Part Number / Config ID in the grid and show Config ID / Config Description on one row beneath the part details in the drill-down.",
           functional: "The shared Part column supports filtering by part number, configuration ID, or description. Excel keeps Config ID as a separate field. The drill-down shows both configuration values together, wrapping when necessary. Missing values display an em dash.",
-          technical: "The API matches cached sales-order lines by both work-order reference and item, exposing configId and configDescription only when unambiguous. No source-query or external refresh behavior changes.",
+          technical: "The external cache retains configuration directly from the production order and the preferred en-us translation rather than inferring it from sales lines. API requests read these prepared fields without source queries or database-cache refresh.",
         },
         {
           title: "Optional responsible-person enrichment",
           status: "fulfilled",
           requirement: "Do not hide an otherwise eligible work order because its sales-order responsible person is blank or absent from worker staging.",
-          functional: "Missing employee information does not remove an eligible Started or Released work order. Required company, sales-demand, product-classification, and status rules remain unchanged.",
+          functional: "Missing employee information does not remove an otherwise eligible TOUS SC2 Machine Started or Released work order. A validated Sales Order header and exact demand-line link are required.",
           technical: "d365fo.vw_salesprodmachines365_app uses LEFT JOIN for hcmworkerstaging. The existing external procedure owns snapshot refresh; login, API, and browser refresh must not execute it.",
         },
         {
@@ -90,7 +90,7 @@ export const REQUIREMENTS_REVIEW: {
           status: "partial",
           liveValidation: "sales-order-linkage",
           requirement: "Connect work orders to sales orders and retain the production, customer, and SC3 relationship.",
-          functional: "A work-order row shows production and commercial context from the live source and makes partial or unlinked exceptions explicit.",
+          functional: "A work-order row shows production and commercial context from the live source. Only work orders with fully validated Sales Order header and demand-line links are admitted.",
           technical: "The API reconciles source sales headers and item lines to production-order demand using sales order, company, item, and inventory-lot demand identifiers. This requirement becomes fulfilled only while that audit is live.",
         },
         {
@@ -130,9 +130,9 @@ export const REQUIREMENTS_REVIEW: {
         {
           title: "Required source filters",
           status: "fulfilled",
-          requirement: "Exclude the configured item, disallowed SC1/SC2/SC3 values, completed statuses, and consignment pools.",
-          functional: "Operators only see the approved production scope; these rules cannot be disabled from the UI.",
-          technical: "The same predicate is applied in the Azure SQL WHERE clause and again server-side before orders, demand, KPIs, and teams are produced.",
+          requirement: "Include every TOUS SC2 Machine Released or Started work order with a validated Sales Order link.",
+          functional: "SC1 and SC3 have no allowlists. Item 02002107, consignments, and closed sales-order statuses do not exclude an otherwise eligible work order. Stock orders and missing/partial demand links are excluded. New SC3 filters appear automatically; missing classifications remain visible under Unclassified.",
+          technical: "The production-first app view and externally orchestrated cache refresh enforce company, SC2, production status, and exact Sales Order linkage. The API repeats that scope defensively and normalizes blank SC1/SC3 labels without losing missing-classification quality counts.",
         },
         {
           title: "SC1 group filter over SC3 teams",

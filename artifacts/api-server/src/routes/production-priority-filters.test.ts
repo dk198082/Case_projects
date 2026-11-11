@@ -2,12 +2,14 @@ import assert from "node:assert/strict";
 import {
   getProductionPriorityLinkageStatus,
   isRequiredProductionPriorityRow,
+  isEligibleSalesLinkedMachineOrder,
   isValidatedProductionPriorityLinkage,
   type ProductionPriorityFilterRow,
   type ProductionPriorityLinkageRow,
 } from "./production-priority-filters";
 
 const approvedRow: ProductionPriorityFilterRow = {
+  dataareaid: "TOUS",
   itemnumber: "09010600",
   salesorderpoolid: "Production",
   sc1: "SL-Series",
@@ -23,14 +25,14 @@ const cases: Array<{
 }> = [
   { name: "allows an approved source row", row: approvedRow, expected: true },
   {
-    name: "excludes item 02002107",
+    name: "includes formerly excluded item 02002107",
     row: { ...approvedRow, itemnumber: "02002107" },
-    expected: false,
+    expected: true,
   },
   {
-    name: "excludes an unapproved SC1",
+    name: "includes a new SC1",
     row: { ...approvedRow, sc1: "Other" },
-    expected: false,
+    expected: true,
   },
   {
     name: "excludes an unapproved SC2",
@@ -38,9 +40,9 @@ const cases: Array<{
     expected: false,
   },
   {
-    name: "excludes an unapproved SC3",
+    name: "includes a new SC3 without changing an allowlist",
     row: { ...approvedRow, sc3: "Other" },
-    expected: false,
+    expected: true,
   },
   {
     name: "allows MP1500 SC3",
@@ -73,10 +75,21 @@ const cases: Array<{
     expected: false,
   },
   {
-    name: "excludes consignment sales-order pools regardless of casing",
+    name: "includes Machine orders in consignment sales-order pools",
     row: { ...approvedRow, salesorderpoolid: "West Consign Orders" },
-    expected: false,
+    expected: true,
   },
+  ...["IT503", "IT504", "3000SL", null, ""].map((sc3) => ({
+    name: `includes active Machine orders with SC3 ${sc3}`,
+    row: { ...approvedRow, sc3 }, expected: true,
+  })),
+  { name: "includes missing SC1 and sales pool", row: { ...approvedRow, sc1: null, salesorderpoolid: null }, expected: true },
+  { name: "allows Released", row: { ...approvedRow, status: "Released" }, expected: true },
+  { name: "excludes Scheduled", row: { ...approvedRow, status: "Scheduled" }, expected: false },
+  { name: "excludes another company", row: { ...approvedRow, dataareaid: "TOUK" }, expected: false },
+  ...["Electmech", "Hydraulic", null].map((sc2) => ({
+    name: `excludes non-Machine SC2 ${sc2}`, row: { ...approvedRow, sc2 }, expected: false,
+  })),
 ];
 
 for (const { name, row, expected } of cases) {
@@ -157,3 +170,22 @@ for (const { name, row, expectedStatus, isValidated } of linkageCases) {
 }
 
 console.log(`Verified ${linkageCases.length} sales-order linkage cases.`);
+
+for (const { name, row, isValidated } of linkageCases) {
+  assert.equal(
+    isEligibleSalesLinkedMachineOrder({ ...approvedRow, ...row }),
+    isValidated,
+    `Board admission: ${name}`,
+  );
+}
+for (const sc3 of ["IT503", "IT504", "Future-SC3", null]) {
+  assert.equal(isEligibleSalesLinkedMachineOrder({
+    ...approvedRow, ...matchedLinkage, sc3,
+  }), true);
+}
+assert.equal(isEligibleSalesLinkedMachineOrder({
+  ...approvedRow, ...matchedLinkage, status: "Scheduled",
+}), false);
+assert.equal(isEligibleSalesLinkedMachineOrder({
+  ...approvedRow, ...matchedLinkage, sc2: "Hydraulic",
+}), false);

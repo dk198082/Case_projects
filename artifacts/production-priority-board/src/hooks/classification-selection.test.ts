@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
+import { renderHook } from "@testing-library/react";
 import {
   calculateWorkOrderQuantityStats,
   matchesBoardFilter,
@@ -6,10 +7,31 @@ import {
   resolveSessionSC3Selection,
   sumWorkOrderQuantity,
   toggleClassificationSelection,
+  useSC3TeamsForGroup,
 } from "@/hooks/use-production-data";
 import { isShipDateWithinWeeks } from "@/lib/date-utils";
 
 describe("classification multi-selection", () => {
+  it("automatically creates filters for new SC3s and the Unclassified bucket", () => {
+    const first = {
+      SC1: "New Family", SC3: "IT503", status: "STARTED" as const, workOrderQty: 1,
+    };
+    const { result, rerender } = renderHook(
+      ({ rows }) => useSC3TeamsForGroup(rows, []),
+      { initialProps: { rows: [first] } },
+    );
+    expect(result.current).toEqual(["IT503"]);
+    rerender({ rows: [
+      first,
+      { ...first, SC3: "IT504" },
+      { ...first, SC3: "Brand-New-SC3" },
+      { ...first, SC1: "Unclassified", SC3: "Unclassified" },
+    ] });
+    expect(result.current).toEqual(["Brand-New-SC3", "IT503", "IT504", "Unclassified"]);
+    expect(matchesClassificationSelections(
+      { SC1: "Unclassified", SC3: "Unclassified" }, [], [],
+    )).toBe(true);
+  });
   const orders = [
     { SC3: "300SL", status: "RELEASED" as const, workOrderQty: 4 },
     { SC3: "300SL", status: "STARTED" as const, workOrderQty: 2 },

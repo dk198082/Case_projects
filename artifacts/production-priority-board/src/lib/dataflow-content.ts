@@ -30,8 +30,8 @@ export type DataflowSection = {
  */
 export const DATAFLOW_DOCUMENT = {
   title: "Production Priority Board dataflow",
-  version: "2026.10.28",
-  updatedOn: "28 October 2026",
+  version: "2026.11.06",
+  updatedOn: "6 November 2026",
   purpose:
     "Trace the read-only path from Azure PostgreSQL source objects to the production queue, future demand panel, KPIs, exceptions, and data-quality indicators.",
   runtimePath: [
@@ -104,31 +104,31 @@ export const DATAFLOW_DOCUMENT = {
         {
           name: "Source-view eligibility and optional employee enrichment",
           stage: "guardrail",
-          formula: "Require a TOUS sales header and sales line with status 1, joined by exact sales-order number and company, plus a released-product record matching item and company. A production order appears only when demand sales order, company, item, and demand-line inventory lot match the sales line exactly. The employee lookup is a LEFT JOIN on responsible personnel number; configuration translations are also optional.",
-          result: "Blank or unmatched responsible personnel no longer excludes an otherwise eligible order. Missing required sales/product links still exclude it; unmatched production demand cannot become a board work order.",
+          formula: "Start from TOUS production orders with numeric status 3 or 4 and a released-product SC2 of Machine. Require a matching sales header and exact company/sales-order/item/demand-lot sales line. Configuration translation and employee metadata remain optional. Sales status is not an admission gate.",
+          result: "Stock orders and missing/partial Sales Order links are excluded. Otherwise eligible production orders survive closed sales statuses, missing employee/configuration-translation metadata, and unknown SC1/SC3 values. Configuration comes from the production order.",
           source: "d365fo.vw_salesprodmachines365_app",
         },
         {
           name: "Required source predicate",
           stage: "guardrail",
           formula:
-            "Keep only itemnumber != '02002107' AND sc2 in [Electmech, Machine, Hydraulic] AND sc1 in the approved list AND sc3 in the approved list AND normalized status not in [COMPLETED, REPORTEDFINISHED] AND salesorderpoolid does not contain 'Consign' (case-insensitive).",
+            "Keep TOUS + trimmed SC2 = Machine + numeric production status in [3, 4] (Released/Started) + validated Sales Order header/line/production-demand linkage. There are no SC1/SC3 allowlists, item or sales-pool exclusions, or sales-status gates.",
           result: "The filtered machine CTE is the only rowset passed into stop auditing, linkage auditing, order mapping, demand derivation, and quality counts.",
           source: "d365fo.sp_refresh_production_priority_cache(); production-priority-filters.ts mirrors the approved scope",
         },
         {
-          name: "Approved SC1 values",
+          name: "Dynamic SC1 groups",
           stage: "guardrail",
-          formula: "Automated, FoldingEnd, HDT, Met-Impact, MFI, Plas-Impac, Retrofit, SL-Series, Torsion, Horizontal.",
-          result: "Rows outside the approved SC1 taxonomy never reach the browser.",
-          source: "production-priority-filters.ts → ALLOWED_SC1",
+          formula: "All SC1 values are allowed. Blank labels use Unclassified.",
+          result: "SC1 is a dynamic operator grouping, not an eligibility whitelist.",
+          source: "production-priority.ts → getClassificationLabel()",
         },
         {
-          name: "Approved SC3 values",
+          name: "Dynamic SC3 teams",
           stage: "guardrail",
-          formula: "2000SL, SL-ST, Misc, IT406, HDVT3, 600SL, Torsion, 300SL, 1000SL, NO-CNSL, MP1500, MP1200MAN, MP1200MWLD, MP1200ETO, CNSL-HYD, IT542, 799, CNSL-NOHYD, HDVT6.",
-          result: "The selector can only be populated by approved SC3 values that have active returned orders; an approved team with no active rows is not shown.",
-          source: "production-priority-filters.ts → ALLOWED_SC3; use-production-data.ts → useSC3Teams()",
+          formula: "All SC3 values are allowed, including IT503, IT504, and future values. Blank labels use Unclassified.",
+          result: "Filters are generated automatically from eligible returned orders. All groups / All teams includes every eligible order; selecting groups can intentionally narrow the queue.",
+          source: "production-priority.ts → getClassificationLabel(); use-production-data.ts → useSC3TeamsForGroup()",
         },
         {
           name: "Audit row identity",
@@ -141,7 +141,7 @@ export const DATAFLOW_DOCUMENT = {
     },
     {
       title: "2. Linkage audits",
-      summary: "The server performs the relational checks before it labels a work order linked, partial, or unlinked.",
+      summary: "The source, prepared cache, and API require a validated Sales Order link before admitting a work order.",
       items: [
         {
           name: "Sales header linkage",
@@ -201,7 +201,7 @@ export const DATAFLOW_DOCUMENT = {
         {
           name: "Work-order configuration",
           stage: "transform",
-          formula: "From cached salesorderlines, match both reference = productionordernumber and item = itemnumber. Expose configId from configuration and configDescription from configname only when unambiguous; unavailable values remain blank.",
+          formula: "Expose configId and configDescription from cached production-order configuration and the preferred en-us translation. Configuration is not inferred from sales lines; the separate Sales Order linkage requirement still applies.",
           result: "The grid combines Part Number / Config ID on one line with the part description beneath; its shared column filter searches all three values. The drill-down combines Config ID / Config Description on one row directly below the part details, wrapping when needed. Excel retains a separate Config ID field. No additional source query or cache rebuild is performed.",
           source: "production-priority-mapping.ts → getOrderConfiguration(); Dashboard.tsx; OrderDetailsDialog.tsx",
         },
@@ -297,7 +297,7 @@ export const DATAFLOW_DOCUMENT = {
         {
           name: "Demand and validity counts",
           stage: "output",
-          formula: "futureDemand = demand.length; futureDemandAlreadyLinked is currently 0; invalidSC3 counts returned orders with blank SC3; invalidDates counts source rows with a non-null deliverydate that cannot be parsed.",
+          formula: "futureDemand and futureDemandAlreadyLinked are 0 for the active work-order-only cache; invalidSC3 counts active source rows with raw blank SC3 before the Unclassified display label is applied; invalidDates counts source rows with a non-null deliverydate that cannot be parsed.",
           result: "The response exposes forward-demand and remaining shape/date indicators used by the Board and downloadable dataflow document.",
           source: "production-priority.ts → dataQuality",
         },

@@ -6,6 +6,8 @@ type SalesOrderCustomerNameSource = {
 
 const text = (value: unknown) => (value == null ? "" : String(value).trim());
 
+export const getClassificationLabel = (value: unknown) => text(value) || "Unclassified";
+
 export const getOrderConfiguration = (
   workOrder: string,
   itemNumber: string,

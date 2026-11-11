@@ -29,22 +29,7 @@ app.use(
     },
   }),
 );
-// CORS_ORIGIN is only needed if the frontend is deployed separately from this
-// API (e.g. a second Azure Static Web App instead of STATIC_DIR mode below).
-// Comma-separated list of allowed origins. Left unset, cors() reflects no
-// restriction — the same behavior as before this change, and fine for
-// same-origin STATIC_DIR deployment, where the browser never makes a
-// cross-origin request in the first place.
-const corsOrigins = process.env.CORS_ORIGIN?.split(",")
-  .map((o) => o.trim())
-  .filter(Boolean);
-app.use(
-  cors(
-    corsOrigins?.length
-      ? { origin: corsOrigins, credentials: true }
-      : undefined,
-  ),
-);
+app.use(cors());
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(sessionMiddleware);
@@ -69,11 +54,6 @@ if (staticDir) {
     );
   }
   app.use(express.static(resolvedStaticDir));
-  // SPA fallback: any non-API, non-file GET request returns index.html so
-  // client-side routing can handle the path. Registered after "/api" so
-  // API routes/404s above are never shadowed by this. Uses a RegExp route
-  // (not a bare "*" string) because Express 5's router (path-to-regexp v8)
-  // rejects an unnamed "*" wildcard outright.
   app.get(/^(?!\/api\/).*/, (_req, res) => {
     res.sendFile(path.join(resolvedStaticDir, "index.html"));
   });

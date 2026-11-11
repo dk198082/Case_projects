@@ -2,10 +2,18 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   getOrderConfiguration,
+  getClassificationLabel,
   getSalesOrderCustomerName,
   getWorkOrderQuantity,
 } from "./production-priority-mapping";
 
+test("classification labels preserve arbitrary new groups and bucket blank values", () => {
+  for (const label of ["IT503", "IT504", "New-SC3", "Future family"]) {
+    assert.equal(getClassificationLabel(label), label);
+  }
+  assert.equal(getClassificationLabel(null), "Unclassified");
+  assert.equal(getClassificationLabel("  "), "Unclassified");
+});
 test("uses only the cached configuration matching both work order and item", () => {
   const line = {
     reference: "365274", item: "09010630", configuration: "09010630-596256",

@@ -4,10 +4,11 @@ import { Router, type IRouter } from "express";
 import { requireLogin } from "../middleware/auth";
 import {
   getProductionPriorityLinkageStatus,
+  isEligibleSalesLinkedMachineOrder,
   isValidatedProductionPriorityLinkage,
 } from "./production-priority-filters";
 import {
-  getOrderConfiguration,
+  getClassificationLabel,
   getSalesOrderCustomerName,
   getWorkOrderQuantity,
 } from "./production-priority-mapping";
@@ -55,6 +56,8 @@ type ProductionRow = {
   buildstartdate: Date | null;
   buildenddate: Date | null;
   salesorderlines: RawSalesOrderLine[] | null;
+  configuration: string | null;
+  translatedconfigurationname: string | null;
 };
 
 type RawSalesOrderLine = {
@@ -144,7 +147,7 @@ const hasFutureShipDate = (row: ProductionRow) =>
 
 const quoteIdentifier = (value: string) => `"${value.replace(/"/g, "\"\"")}"`;
 
-async function loadSnapshot(): Promise<PrioritySnapshot> {
+export async function loadSnapshot(): Promise<PrioritySnapshot> {
   const schema = process.env.AZURE_PG_SCHEMA;
   if (!schema || !/^[a-zA-Z_][a-zA-Z0-9_]*$/.test(schema)) {
     throw new Error("AZURE_PG_SCHEMA must be a valid PostgreSQL schema identifier.");
@@ -165,14 +168,15 @@ async function loadSnapshot(): Promise<PrioritySnapshot> {
       resource1, resource, task, assy_resource, machineresource,
       salesheadercustomername, salesheadermatched, saleslinematched,
       productiondemandmatched, inventorylotdemandid,
-      buildstartdate, buildenddate, productiongroupname, salesorderlines
+      buildstartdate, buildenddate, productiongroupname, salesorderlines,
+      configuration, translatedconfigurationname
     FROM ${cacheTableName}
   `);
 
   const rows = result.rows;
   const activeRows = rows.filter((row) => {
     const workOrder = text(row.productionordernumber);
-    return workOrder && normalizeStatus(row.status) !== "";
+    return workOrder && isEligibleSalesLinkedMachineOrder(row);
   });
 
   const orders = activeRows.map((row, index) => {
@@ -231,10 +235,11 @@ async function loadSnapshot(): Promise<PrioritySnapshot> {
       customerPO: "",
       itemNumber: text(row.itemnumber),
       description: text(row.itemdesc) || text(row.productionordername),
-      ...getOrderConfiguration(workOrder, text(row.itemnumber), salesOrderLines),
-      SC1: text(row.sc1),
+      configId: text(row.configuration),
+      configDescription: text(row.translatedconfigurationname),
+      SC1: getClassificationLabel(row.sc1),
       SC2: text(row.sc2),
-      SC3: text(row.sc3),
+      SC3: getClassificationLabel(row.sc3),
       buildStartDate,
       buildEndDate,
       salesShipDate,
@@ -303,7 +308,7 @@ async function loadSnapshot(): Promise<PrioritySnapshot> {
       unlinkedOrders: orders.filter((order) => order.linkageStatus === "Unlinked").length,
       futureDemand: demand.length,
       futureDemandAlreadyLinked: 0,
-      invalidSC3: orders.filter((order) => !order.SC3).length,
+      invalidSC3: activeRows.filter((row) => !text(row.sc3)).length,
       invalidDates: rows.filter(
         (row) =>
           row.deliverydate != null &&
