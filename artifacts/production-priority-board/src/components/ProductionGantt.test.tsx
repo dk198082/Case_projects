@@ -4,7 +4,7 @@ import { ProductionGantt } from "./ProductionGantt";
 import type { ProductionOrder } from "@/lib/mock-data";
 
 const order = (id: string, dates: Partial<ProductionOrder> = {}) => ({
-  id, workOrder: `WO-${id}`, itemNumber: "PART", customer: "Test customer",
+  id, workOrder: `WO-${id}`, salesOrder: `SO-${id}`, itemNumber: "PART", customer: "Test customer",
   status: "STARTED", workOrderQty: 3, scheduledWorkOrderQty: 5,
   productionGroup: "Assembly", buildStartDate: "2026-09-01",
   buildEndDate: "2026-09-05", salesShipDate: "2026-09-10", ...dates,
@@ -19,6 +19,24 @@ beforeEach(() => {
 afterEach(() => { cleanup(); vi.unstubAllGlobals(); });
 
 describe("ProductionGantt", () => {
+  it("removes the Today button, prefixes the customer with its sales order, and puts end-only text left of the marker", () => {
+    render(<ProductionGantt
+      orders={[order("end", { buildStartDate: "" }), order("start", { buildEndDate: "", salesOrder: "" })]}
+      priorityById={new Map()}
+      onSelectOrder={vi.fn()}
+    />);
+    expect(screen.queryByRole("button", { name: /today/i })).toBeNull();
+    const row = screen.getByTestId("gantt-row-end");
+    expect(row.getAttribute("aria-label")).toContain("sales order SO-end, Test customer");
+    const customerLine = screen.getByText("SO-end ·").parentElement!;
+    expect(customerLine.textContent).toBe("SO-end ·Test customer");
+    const endLabel = screen.getByText("End only, no build start");
+    expect(endLabel.style.right).toContain("calc(");
+    expect(endLabel.style.left).toBe("");
+    expect(screen.getByText("Start only, no build end").style.left).not.toBe("");
+    expect(screen.getByTestId("gantt-row-start").getAttribute("aria-label")).toContain("sales order none, Test customer");
+  });
+
   it("retains supplied order and priority and opens details by mouse or keyboard", () => {
     const orders = [order("second"), order("first", { buildStartDate: "", buildEndDate: "" })];
     const select = vi.fn();

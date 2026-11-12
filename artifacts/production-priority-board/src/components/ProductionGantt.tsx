@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type KeyboardEvent } from "react";
-import { ChevronLeft, ChevronRight, Crosshair } from "lucide-react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { ProductionOrder } from "@/lib/mock-data";
 import { formatCalendarDate } from "@/lib/date-utils";
 import {
@@ -81,11 +81,6 @@ export function ProductionGantt({
   const pageRows = rows.slice(safePage * PAGE_SIZE, safePage * PAGE_SIZE + PAGE_SIZE);
   const todayInRange = today >= domain.start && today < domain.end;
 
-  const scrollToToday = () => {
-    const el = scrollRef.current;
-    if (el) el.scrollTo({ left: Math.max(0, x(today) - (width - labelWidth) / 2), behavior: "smooth" });
-  };
-
   const onKey = (e: KeyboardEvent, order: ProductionOrder) => {
     if (e.key === "Enter" || e.key === " ") {
       e.preventDefault();
@@ -123,15 +118,6 @@ export function ProductionGantt({
               </button>
             ))}
           </div>
-          <button
-            type="button"
-            data-testid="gantt-scroll-today"
-            onClick={scrollToToday}
-            disabled={!todayInRange}
-            className="inline-flex items-center gap-1.5 rounded-sm border border-border px-2.5 py-1 font-mono text-[10px] uppercase tracking-[0.08em] text-muted-foreground hover:border-primary/50 hover:text-primary disabled:opacity-40"
-          >
-            <Crosshair className="h-3 w-3" aria-hidden="true" /> Today
-          </button>
         </div>
       </div>
 
@@ -194,7 +180,7 @@ export function ProductionGantt({
               const buildPast = info.end !== null && info.end < today;
               const shipPast = info.ship !== null && info.ship < today;
               const dates = `Build start ${formatCalendarDate(order.buildStartDate)}, build end ${formatCalendarDate(order.buildEndDate)}, ship ${formatCalendarDate(order.salesShipDate)}`;
-              const label = `Priority ${priority ?? "unranked"}, work order ${order.workOrder || "none"}, ${order.customer}. ${KIND_LABEL[info.kind]}. ${dates}. ${fmtQty(order.workOrderQty)} of ${fmtQty(order.scheduledWorkOrderQty)} remaining.`;
+              const label = `Priority ${priority ?? "unranked"}, work order ${order.workOrder || "none"}, sales order ${order.salesOrder || "none"}, ${order.customer}. ${KIND_LABEL[info.kind]}. ${dates}. ${fmtQty(order.workOrderQty)} of ${fmtQty(order.scheduledWorkOrderQty)} remaining.`;
               return (
                 <div
                   key={order.id}
@@ -215,7 +201,10 @@ export function ProductionGantt({
                         {order.workOrder || "—"}
                         <span className="truncate font-normal text-[10px] text-muted-foreground">{order.itemNumber}</span>
                       </p>
-                      <p className="truncate text-[10px] text-muted-foreground">{order.customer}</p>
+                      <p className="flex min-w-0 items-baseline gap-1 text-[10px] text-muted-foreground" title={[order.salesOrder, order.customer].filter(Boolean).join(" · ")}>
+                        {order.salesOrder && <span className="shrink-0 font-mono">{order.salesOrder} ·</span>}
+                        <span className="truncate">{order.customer}</span>
+                      </p>
                     </div>
                     <span className="shrink-0 font-mono text-[10px] tabular-nums text-foreground/80">{fmtQty(order.workOrderQty)}</span>
                   </div>
@@ -294,7 +283,7 @@ function Bar({
     return (
       <>
         <span className="absolute top-1/2 h-3.5 w-1 -translate-y-1/2 rounded-[1px] bg-amber-300" style={{ left }} />
-        <span className={tag} style={{ left: left + 8 }}>
+        <span className={tag} style={info.kind === "end-only" ? { right: `calc(100% - ${left}px + 8px)` } : { left: left + 8 }}>
           {info.kind === "start-only" ? "Start only, no build end" : "End only, no build start"}
         </span>
       </>
